@@ -1,228 +1,251 @@
 # Rede Krill — Agendamento de Caminhões
 
-Sistema para agendamento de caminhões, controle **não bloqueante** de capacidade de pallets,
-notificação automática ao fornecedor por e-mail, auditoria de operações e relatórios por período.
+Sistema desenvolvido para organizar o agendamento de caminhões e acompanhar a movimentação de pallets no centro de distribuição da Rede Krill.
 
-O repositório contém:
+A aplicação permite cadastrar agendamentos, consultar horários, acompanhar a capacidade de recebimento, enviar confirmações por e-mail e consultar registros de operações.
 
-- **Backend** em Java 21 + Spring Boot 3.3.5, seguindo princípios de Clean Architecture.
-- **Frontend** em Vue 3 + Vite, com autenticação JWT, layout responsivo e navegação por perfil.
-- **PostgreSQL 16** com migrações Flyway e **MailHog** para captura dos e-mails em desenvolvimento.
-- **Docker Compose** para subir toda a aplicação com um único comando.
+## Tecnologias utilizadas
 
----
+**Backend**
+- Java 21
+- Spring Boot 3.3.5
+- Spring Security
+- Spring Data JPA
+- PostgreSQL 16
+- Flyway
+- JWT e BCrypt
+- Spring Mail e Thymeleaf
 
-## Sumário
+**Frontend**
+- Vue 3
+- Vite 5
+- Vue Router
+- Pinia
+- Tailwind CSS
+- PrimeVue 4
+- Axios
 
-- [Funcionalidades](#funcionalidades)
-- [Regras de negócio](#regras-de-negócio)
-- [Stack](#stack)
-- [Arquitetura](#arquitetura)
-- [Como executar com Docker](#como-executar-com-docker)
-- [Desenvolvimento local](#desenvolvimento-local)
-- [Credenciais iniciais](#credenciais-iniciais)
-- [API](#api)
-- [Testes e cobertura](#testes-e-cobertura)
-- [Banco de dados](#banco-de-dados)
-- [Segurança](#segurança)
-- [Decisões de projeto](#decisões-de-projeto)
-- [Próximos passos](#próximos-passos)
-
----
+**Outras ferramentas**
+- Docker e Docker Compose
+- Nginx
+- MailHog
+- Maven
+- JUnit 5, Mockito, AssertJ e ArchUnit
+- JaCoCo
 
 ## Funcionalidades
 
-| Funcionalidade | Situação |
-| --- | --- |
-| Autenticação com JWT e perfis `ADMIN` / `USER` | Concluído |
-| CRUD de agendamentos | Concluído no backend |
-| Cálculo de pallets efetivos conforme paletização | Concluído |
-| Avisos de capacidade diária e por faixa (sem bloqueio) | Concluído |
-| Envio automático de e-mail ao fornecedor | Concluído no backend |
-| Auditoria de criação, atualização e exclusão | Concluído no backend |
-| Relatório de agendamentos por período | Concluído no backend |
-| CRUD de usuários e tipos de caminhão | Concluído no backend |
-| Documentação OpenAPI / Swagger UI | Concluído |
-| Frontend com login funcional e layout | Concluído |
-| Telas completas de agendamentos, relatórios, usuários e auditoria | Próxima entrega |
-| Testes unitários, de integração e de arquitetura com JaCoCo ≥ 80% | Concluído |
+Atualmente, o projeto conta com:
 
----
+- Login com autenticação JWT.
+- Controle de acesso para administradores e usuários.
+- Cadastro, consulta, edição e exclusão de agendamentos.
+- Cálculo de pallets conforme o tipo de paletização.
+- Consulta de capacidade por dia e faixa horária.
+- Envio de confirmação por e-mail ao fornecedor.
+- Registro de operações em log de auditoria.
+- Consulta de agendamentos por período.
+- Gerenciamento de usuários.
+- Cadastro e gerenciamento de tipos de caminhão.
+- Documentação da API pelo Swagger.
+- Interface web com login e navegação conforme o perfil de acesso.
+
+A interface ainda precisa receber as telas completas de agendamentos, relatórios, usuários e auditoria.
 
 ## Regras de negócio
 
-### Faixas horárias
+### Horários de recebimento
 
-Existem exatamente **quatro faixas de 2 horas**:
+O sistema trabalha com quatro faixas horárias:
 
-| ID | Faixa |
-| --- | --- |
-| 1 | 08:00 – 10:00 |
-| 2 | 10:00 – 12:00 |
-| 3 | 13:00 – 15:00 |
-| 4 | 15:00 – 17:00 |
+| ID | Horário |
+|---|---|
+| 1 | 08:00 às 10:00 |
+| 2 | 10:00 às 12:00 |
+| 3 | 13:00 às 15:00 |
+| 4 | 15:00 às 17:00 |
 
-### Capacidade
+### Capacidade de pallets
 
-- Limite **diário**: **480 pallets**.
-- Limite por **faixa horária**: **120 pallets**.
+Os limites utilizados pelo sistema são:
 
-Os limites são **apenas informativos**. Ao ultrapassá-los, o agendamento é gravado normalmente
-e a resposta inclui avisos em `warnings`. **Nenhuma operação é bloqueada.**
+- 480 pallets por dia.
+- 120 pallets por faixa horária.
 
-### Pallets efetivos
+Esses valores servem para acompanhamento da capacidade, não para impedir agendamentos.
 
-A quantidade considerada no cálculo de capacidade depende do tipo de paletização:
+Quando algum limite é ultrapassado, o sistema retorna um aviso no campo `warnings`, mas mantém o agendamento normalmente.
 
-| Tipo | Multiplicador | Exemplo: 10 pallets informados | Efetivo |
-| --- | --- | --- | --- |
-| Paletizado | 1 | 10 | 10 |
-| Não Paletizado | 2 | 10 | 20 |
+### Cálculo de pallets
 
-O campo `palletQuantity` guarda a quantidade informada e `effectivePallets` guarda a quantidade
-usada nos limites de capacidade.
+O cálculo depende do tipo de paletização informado:
 
-### Perfis de acesso
+| Tipo | Quantidade informada | Quantidade considerada |
+|---|---:|---:|
+| Paletizado | 10 | 10 |
+| Não paletizado | 10 | 20 |
 
-| Operação | `ADMIN` | `USER` |
-| --- | --- | --- |
-| Login e consulta do próprio usuário | Sim | Sim |
-| Listar/consultar agendamentos | Sim | Sim |
-| Criar/editar/excluir agendamentos | Sim | Não |
-| Consultar relatórios | Sim | Sim |
-| Consultar tipos de caminhão e referências | Sim | Sim |
-| Criar/editar/excluir tipos de caminhão | Sim | Não |
-| Gerenciar usuários | Sim | Não |
-| Visualizar logs de auditoria | Sim | Não |
+O sistema mantém dois campos:
 
-### E-mail automático
+- `palletQuantity`: quantidade informada no cadastro.
+- `effectivePallets`: quantidade utilizada no cálculo da capacidade.
 
-Após o commit da criação de um agendamento, o backend envia um e-mail de confirmação ao
-fornecedor. Se o envio falhar, a falha é registrada em log e **o agendamento permanece salvo**.
+### Permissões
 
----
+Existem dois perfis de acesso:
 
-## Stack
+**ADMIN**
+- Gerenciar agendamentos.
+- Consultar relatórios.
+- Gerenciar usuários.
+- Gerenciar tipos de caminhão.
+- Consultar registros de auditoria.
+- Consultar dados de referência.
+
+**USER**
+- Consultar agendamentos.
+- Consultar relatórios.
+- Consultar tipos de caminhão e dados de referência.
+- Consultar os próprios dados de usuário.
+
+### Envio de e-mails
+
+Depois que um agendamento é salvo, o sistema envia uma confirmação ao fornecedor.
+
+Caso ocorra algum problema no envio, a falha é registrada no log. Isso não cancela nem desfaz o agendamento.
+
+## Organização do projeto
+
+O repositório está dividido em duas partes principais:
+
+```text
+Rede-Krill/
+│
+├── backend/
+│   └── src/
+│
+├── frontend/
+│   └── src/
+│
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
 
 ### Backend
 
-- Java 21
-- Spring Boot 3.3.5
-- Spring Web, Spring Data JPA, Spring Security
-- Bean Validation
-- PostgreSQL 16 + Flyway
-- JWT (`jjwt` 0.12.6) + BCrypt
-- Spring Mail + Thymeleaf (template HTML do e-mail)
-- springdoc OpenAPI 2.6.0
-- JUnit 5, Mockito, AssertJ, ArchUnit, JaCoCo
+O backend utiliza uma estrutura baseada em Clean Architecture.
+
+```text
+com.redekrill.scheduling
+│
+├── domain/
+│   ├── model/
+│   ├── policy/
+│   ├── repository/
+│   └── exception/
+│
+├── application/
+│   ├── dto/
+│   ├── port/
+│   ├── service/
+│   └── usecase/
+│
+├── infrastructure/
+│   ├── persistence/
+│   ├── security/
+│   ├── config/
+│   ├── email/
+│   ├── seed/
+│   └── transaction/
+│
+└── presentation/
+    ├── controller/
+    ├── request/
+    ├── response/
+    ├── mapper/
+    └── exception/
+```
+
+A separação permite manter as regras de negócio independentes dos detalhes de banco de dados, autenticação e comunicação HTTP.
 
 ### Frontend
 
-- Vue 3 (Composition API)
-- Vite 5
-- Vue Router 4
-- Pinia
-- Tailwind CSS 3
-- PrimeVue 4 + PrimeIcons
-- Axios
-
-### Infraestrutura
-
-- Docker + Docker Compose
-- nginx para servir o frontend e encaminhar `/api` ao backend
-- MailHog para inspeção dos e-mails em desenvolvimento
-
----
-
-## Arquitetura
-
-O backend segue Clean Architecture, com dependências apontando sempre para dentro:
+A estrutura principal do frontend é:
 
 ```text
-presentation  →  application  →  domain
-      │                ▲
-      └── infrastructure ┘
-```
-
-```text
-backend/src/main/java/com/redekrill/scheduling
-├── domain
-│   ├── model            # Entidades e regras puras (Appointment, User, TimeSlot...)
-│   ├── policy           # CapacityPolicy: limites de 480/120 sem bloqueio
-│   ├── repository       # Portas de persistência
-│   └── exception        # Exceções de domínio
-├── application
-│   ├── dto              # Commands e Results
-│   ├── port             # PasswordHasher, TokenIssuer, EmailNotifier, TransactionRunner
-│   ├── service          # AuditService
-│   └── usecase          # Casos de uso (auth, appointment, user, trucktype, audit, reference)
-├── infrastructure
-│   ├── persistence      # Entidades JPA, repositórios Spring Data, mappers e adapters
-│   ├── security         # Filtro JWT, BCrypt, SecurityConfig
-│   ├── config           # Wiring dos casos de uso, OpenAPI, Clock, propriedades
-│   ├── email            # Adapter SMTP + template Thymeleaf
-│   ├── seed             # Administrador inicial
-│   └── transaction      # Implementação de TransactionRunner
-└── presentation
-    ├── controller       # Endpoints REST
-    ├── request          # DTOs de entrada com Bean Validation
-    ├── response         # DTOs de saída
-    ├── mapper           # Conversão application → HTTP
-    └── exception        # GlobalExceptionHandler
-```
-
-O domínio e a aplicação não dependem de Spring, JPA ou de qualquer detalhe de infraestrutura.
-Essa regra é verificada automaticamente pelo `ArchitectureTest` (ArchUnit).
-
-### Frontend
-
-```text
-frontend/src
-├── layouts/AppLayout.vue       # Sidebar, cabeçalho e navegação por perfil
+frontend/src/
+│
+├── layouts/
+│   └── AppLayout.vue
+│
 ├── views/
-│   ├── LoginView.vue           # Login funcional integrado à API
-│   ├── DashboardView.vue       # Painel inicial
+│   ├── LoginView.vue
+│   ├── DashboardView.vue
 │   └── UnderConstructionView.vue
-├── router/index.js             # Rotas e guards de autenticação/autorização
-├── stores/auth.js              # Pinia: token, usuário e login/logout
-├── services/api.js             # Axios + interceptor JWT + tratamento de 401
-└── style.css                   # Tailwind + camadas do PrimeVue
+│
+├── router/
+│   └── index.js
+│
+├── stores/
+│   └── auth.js
+│
+├── services/
+│   └── api.js
+│
+└── style.css
 ```
 
----
+O Vue Router controla a navegação, o Pinia mantém os dados de autenticação e o Axios faz a comunicação com a API.
 
-## Como executar com Docker
+## Como executar
 
-### Pré-requisitos
+### Requisitos
 
-- Docker Desktop (ou Docker Engine + Compose)
+Antes de iniciar, é necessário ter instalado:
 
-### Passos
+- Docker Desktop
+- Docker Compose
+
+Para executar os serviços separadamente, também serão necessários:
+
+- JDK 21
+- Node.js 18 ou superior
+- npm
+
+### Executando com Docker
+
+Na pasta principal do projeto, execute:
+
+```bash
+docker compose up --build
+```
+
+Se quiser utilizar as configurações do arquivo de exemplo:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-No Windows (PowerShell):
+No PowerShell do Windows:
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Aguarde o PostgreSQL ficar saudável. O Flyway cria o schema e insere os dados de referência
-automaticamente na primeira inicialização.
+Aguarde os serviços iniciarem. Na primeira execução, o Flyway será responsável por criar as tabelas e inserir os dados iniciais.
 
-### Serviços
+### Endereços locais
 
-| Serviço | URL |
-| --- | --- |
+| Serviço | Endereço |
+|---|---|
 | Frontend | http://localhost:5173 |
-| API | http://localhost:8080 |
+| Backend | http://localhost:8080 |
 | Swagger UI | http://localhost:5173/swagger-ui.html |
-| MailHog (e-mails) | http://localhost:8025 |
-| PostgreSQL | `localhost:5432` |
+| MailHog | http://localhost:8025 |
+| PostgreSQL | localhost:5432 |
 
 Para encerrar:
 
@@ -230,27 +253,21 @@ Para encerrar:
 docker compose down
 ```
 
-Para remover também os dados do banco:
+Para encerrar e remover também os dados persistidos do banco:
 
 ```bash
 docker compose down -v
 ```
 
-> O arquivo `.env` é opcional; o Compose possui valores padrão para todas as variáveis.
-> Em produção, altere obrigatoriamente `JWT_SECRET` e `SEED_ADMIN_PASSWORD`.
+**Atenção:** o segundo comando apaga os volumes do Docker, incluindo os dados do PostgreSQL.
 
----
+## Executando em desenvolvimento
 
-## Desenvolvimento local
+Também é possível iniciar o backend e o frontend separadamente.
 
-### Pré-requisitos
+### Banco de dados e MailHog
 
-- JDK 21
-- Maven 3.9+ (ou use o Maven Wrapper incluído)
-- Node.js 18+ e npm
-- PostgreSQL 16 e MailHog (podem ser iniciados via Docker)
-
-### Infraestrutura mínima
+Na raiz do projeto:
 
 ```bash
 docker compose up postgres mailhog
@@ -258,22 +275,33 @@ docker compose up postgres mailhog
 
 ### Backend
 
+Entre na pasta:
+
 ```bash
 cd backend
+```
+
+Linux:
+
+```bash
 ./mvnw spring-boot:run
 ```
 
-No Windows:
+Windows:
 
 ```powershell
-cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-A API ficará disponível em `http://localhost:8080` e o Swagger em
-`http://localhost:8080/swagger-ui.html`.
+A API ficará disponível em:
+
+```text
+http://localhost:8080
+```
 
 ### Frontend
+
+Em outro terminal:
 
 ```bash
 cd frontend
@@ -281,265 +309,199 @@ npm install
 npm run dev
 ```
 
-O frontend ficará em `http://localhost:5173`. O Vite encaminha `/api`, `/swagger-ui`,
-`/swagger-ui.html` e `/v3/api-docs` para `http://localhost:8080`.
+A interface ficará disponível em:
 
-Para apontar para outro backend:
+```text
+http://localhost:5173
+```
+
+O Vite encaminha as requisições da API para o backend. Caso seja necessário utilizar outro endereço:
 
 ```bash
 VITE_PROXY_TARGET=http://outro-host:8080 npm run dev
 ```
 
-### Variáveis principais
+## Configurações
 
-| Variável | Padrão | Descrição |
-| --- | --- | --- |
-| `DB_URL` | `jdbc:postgresql://localhost:5432/rede_krill` | URL do PostgreSQL |
-| `DB_USERNAME` | `redekrill` | Usuário do banco |
-| `DB_PASSWORD` | `redekrill` | Senha do banco |
-| `JWT_SECRET` | segredo de desenvolvimento | Chave Base64 com no mínimo 256 bits |
-| `JWT_EXPIRATION` | `86400s` | Validade do token |
-| `MAIL_HOST` | `localhost` | Servidor SMTP |
-| `MAIL_PORT` | `1025` | Porta SMTP (MailHog) |
-| `MAIL_FROM` | `nao-responda@redekrill.com` | Remetente dos e-mails |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origens permitidas |
-| `SEED_ADMIN_NAME` | `Administrador` | Nome do admin inicial |
-| `SEED_ADMIN_EMAIL` | `admin@redekrill.com` | E-mail do admin inicial |
-| `SEED_ADMIN_PASSWORD` | `Admin@12345` | Senha do admin inicial |
+As principais variáveis de ambiente utilizadas pelo projeto são:
 
----
+| Variável | Valor padrão |
+|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/rede_krill` |
+| `DB_USERNAME` | `redekrill` |
+| `DB_PASSWORD` | `redekrill` |
+| `JWT_SECRET` | Segredo de desenvolvimento |
+| `JWT_EXPIRATION` | `86400s` |
+| `MAIL_HOST` | `localhost` |
+| `MAIL_PORT` | `1025` |
+| `MAIL_FROM` | `nao-responda@redekrill.com` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` |
+| `SEED_ADMIN_NAME` | `Administrador` |
+| `SEED_ADMIN_EMAIL` | `admin@redekrill.com` |
+| `SEED_ADMIN_PASSWORD` | `Admin@12345` |
 
-## Credenciais iniciais
+Os valores acima são destinados ao ambiente local. Antes de qualquer implantação em produção, altere as credenciais e configure um segredo JWT próprio e seguro.
 
-Usuário administrador criado automaticamente na primeira execução:
+## Usuário inicial
+
+Na primeira inicialização, o sistema cria um usuário administrador caso ele ainda não exista.
 
 ```text
 E-mail: admin@redekrill.com
-Senha:  Admin@12345
+Senha: Admin@12345
 ```
 
-Esses valores podem ser alterados pelas variáveis `SEED_ADMIN_*` antes da primeira subida.
-O usuário só é criado se ainda não existir.
+Os dados podem ser alterados pelas variáveis `SEED_ADMIN_*`.
 
----
+Não utilize essas credenciais em um ambiente de produção.
 
 ## API
 
-A documentação interativa completa está no Swagger UI. Resumo dos endpoints:
+A API utiliza endpoints REST e autenticação por JWT.
+
+A documentação interativa está disponível no Swagger.
 
 ### Autenticação
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `POST` | `/api/auth/login` | Público | Autentica e retorna o JWT |
-| `GET` | `/api/auth/me` | Autenticado | Retorna o usuário autenticado |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| POST | `/api/auth/login` | Público |
+| GET | `/api/auth/me` | Autenticado |
 
 ### Agendamentos
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/api/appointments?startDate=&endDate=&page=&size=` | `ADMIN`, `USER` | Lista com filtro por período |
-| `GET` | `/api/appointments/{id}` | `ADMIN`, `USER` | Consulta por ID |
-| `POST` | `/api/appointments` | `ADMIN` | Cria e envia e-mail |
-| `PUT` | `/api/appointments/{id}` | `ADMIN` | Atualiza |
-| `DELETE` | `/api/appointments/{id}` | `ADMIN` | Exclui |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/appointments` | ADMIN / USER |
+| GET | `/api/appointments/{id}` | ADMIN / USER |
+| POST | `/api/appointments` | ADMIN |
+| PUT | `/api/appointments/{id}` | ADMIN |
+| DELETE | `/api/appointments/{id}` | ADMIN |
+
+A listagem permite filtros por período e paginação.
 
 ### Relatórios
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/api/reports/appointments?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | `ADMIN`, `USER` | Consolidado por período |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/reports/appointments?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | ADMIN / USER |
+
+O relatório retorna os dados dos agendamentos e os totais calculados para o período.
 
 ### Dados de referência
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/api/time-slots` | `ADMIN`, `USER` | Quatro faixas horárias |
-| `GET` | `/api/palletization-types` | `ADMIN`, `USER` | Tipos de paletização |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/time-slots` | ADMIN / USER |
+| GET | `/api/palletization-types` | ADMIN / USER |
 
 ### Tipos de caminhão
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/api/truck-types` | `ADMIN`, `USER` | Lista |
-| `POST` | `/api/truck-types` | `ADMIN` | Cria |
-| `PUT` | `/api/truck-types/{id}` | `ADMIN` | Atualiza |
-| `DELETE` | `/api/truck-types/{id}` | `ADMIN` | Exclui se não houver agendamento vinculado |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/truck-types` | ADMIN / USER |
+| POST | `/api/truck-types` | ADMIN |
+| PUT | `/api/truck-types/{id}` | ADMIN |
+| DELETE | `/api/truck-types/{id}` | ADMIN |
+
+A exclusão de um tipo de caminhão depende da existência de agendamentos vinculados.
 
 ### Usuários e auditoria
 
-| Método | Endpoint | Acesso | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/api/users?page=&size=` | `ADMIN` | Lista usuários |
-| `POST` | `/api/users` | `ADMIN` | Cria usuário |
-| `PUT` | `/api/users/{id}` | `ADMIN` | Atualiza usuário |
-| `GET` | `/api/audit-logs?page=&size=` | `ADMIN` | Lista logs de auditoria |
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/users?page=&size=` | ADMIN |
+| POST | `/api/users` | ADMIN |
+| PUT | `/api/users/{id}` | ADMIN |
+| GET | `/api/audit-logs?page=&size=` | ADMIN |
 
-### Exemplo: login
+## Banco de dados
 
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@redekrill.com","password":"Admin@12345"}'
+O projeto utiliza PostgreSQL 16 e Flyway para controlar as alterações no banco.
+
+As migrações estão em:
+
+```text
+backend/src/main/resources/db/migration/
 ```
 
-Resposta:
+Arquivos principais:
 
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "tokenType": "Bearer",
-  "expiresIn": 86400,
-  "user": {
-    "id": 1,
-    "name": "Administrador",
-    "email": "admin@redekrill.com",
-    "role": "ADMIN",
-    "active": true,
-    "createdAt": "2026-02-01T12:00:00Z"
-  }
-}
-```
+- `V1__schema.sql`: criação das tabelas, índices e constraints.
+- `V2__reference_data.sql`: inserção dos dados iniciais de referência.
 
-### Exemplo: criar agendamento
+O Hibernate utiliza `ddl-auto: validate`, portanto a estrutura do banco é controlada pelas migrações do Flyway.
 
-```bash
-TOKEN="<token-do-login>"
+## Segurança
 
-curl -X POST http://localhost:8080/api/appointments \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "supplierName": "Fornecedor Krill",
-    "supplierEmail": "fornecedor@example.com",
-    "truckPlate": "ABC1D23",
-    "date": "2026-03-10",
-    "timeSlotId": 1,
-    "truckTypeId": 1,
-    "palletizationTypeId": 2,
-    "palletQuantity": 30
-  }'
-```
+A autenticação e o controle de acesso são implementados com Spring Security.
 
-Resposta (trecho):
+O sistema utiliza:
 
-```json
-{
-  "appointment": {
-    "id": 1,
-    "supplierName": "Fornecedor Krill",
-    "effectivePallets": 60,
-    "palletQuantity": 30,
-    "timeSlot": { "id": 1, "startTime": "08:00", "endTime": "10:00" }
-  },
-  "warnings": [],
-  "capacity": {
-    "dailyPallets": 60,
-    "slotPallets": 60,
-    "dailyLimit": 480,
-    "slotLimit": 120
-  }
-}
-```
+- JWT assinado com HS256.
+- BCrypt para armazenamento de senhas.
+- Controle de permissões por perfil.
+- Configuração de CORS.
+- Validação de dados recebidos pela API.
+- Tratamento centralizado de exceções.
+- Registro de operações para auditoria.
 
-Se os limites forem ultrapassados, `warnings` trará mensagens como
-`"Limite diário de 480 pallets excedido: 500 pallets no dia (excedente de 20)."` e o
-agendamento continuará sendo criado.
+O token possui validade configurável pela variável `JWT_EXPIRATION`.
 
----
+## Testes
 
-## Testes e cobertura
+Os testes do backend podem ser executados com Maven.
+
+Para executar a suíte:
 
 ```bash
 cd backend
-./mvnw test       # executa os testes
-./mvnw verify     # testes + JaCoCo + verificação de cobertura
+./mvnw test
 ```
 
-O relatório HTML é gerado em:
+Para executar os testes e as verificações de cobertura:
 
-```text
-backend/target/site/jacoco/index.html
+```bash
+./mvnw verify
 ```
 
-A cobertura mínima de **80% de linhas** é verificada nos pacotes críticos:
+No Windows, utilize `.\mvnw.cmd` no lugar de `./mvnw`.
+
+A cobertura mínima configurada é de 80% de linhas nos pacotes críticos:
 
 - `domain.policy`
 - `application.usecase.appointment`
 - `application.usecase.auth`
 - `application.service`
 
-A suíte inclui:
+A suíte inclui testes de regras de negócio, autenticação, agendamentos, usuários, auditoria, integração da API e arquitetura.
 
-- Testes da política de capacidade (limites, excedentes e validações).
-- Testes dos casos de uso de agendamento, autenticação, usuários, tipos de caminhão e auditoria.
-- Teste de integração da API com `MockMvc` e PostgreSQL embarcado (Zonky), cobrindo login,
-  autorização por perfil, criação de agendamento, relatório e auditoria.
-- Teste de arquitetura com ArchUnit garantindo o isolamento entre camadas.
+Os testes de integração utilizam MockMvc e PostgreSQL embarcado pelo Zonky, sem exigir uma instância local do PostgreSQL ou Docker.
 
-Os testes de integração não exigem Docker nem um PostgreSQL local: o Zonky inicia uma instância
-embarcada e aplica as migrações Flyway automaticamente.
+Para verificar o relatório de cobertura:
 
-Frontend:
+```text
+backend/target/site/jacoco/index.html
+```
+
+Também é possível verificar a compilação do frontend:
 
 ```bash
 cd frontend
 npm run build
 ```
 
----
+## Melhorias pendentes
 
-## Banco de dados
+As próximas etapas do desenvolvimento são:
 
-As migrações Flyway ficam em `backend/src/main/resources/db/migration`:
-
-- `V1__schema.sql`: tabelas `users`, `truck_type`, `palletization_type`, `time_slot`,
-  `appointment` e `audit_log`, com índices e constraints.
-- `V2__reference_data.sql`: tipos de paletização, quatro faixas horárias e tipos de caminhão
-  iniciais.
-
-O Hibernate está configurado com `ddl-auto: validate`: o schema é responsabilidade do Flyway.
+- Finalizar as telas de agendamento.
+- Implementar os filtros e formulários da interface.
+- Desenvolver a área de relatórios.
+- Criar as telas de gerenciamento de usuários.
+- Implementar a consulta de auditoria pela interface.
+- Adicionar testes end-to-end dos principais fluxos.
 
 ---
 
-## Segurança
-
-- Senhas armazenadas com **BCrypt**.
-- Autenticação **stateless** com JWT assinado (HS256) e validade configurável.
-- Autorização por perfil via Spring Security:
-  - `ADMIN`: acesso total.
-  - `USER`: leitura de agendamentos, referências e relatórios.
-- Rotas públicas limitadas a login, documentação e health/error.
-- CORS restrito às origens configuradas.
-- Respostas de erro padronizadas, sem stack trace.
-- Auditoria registra autor, ação, entidade, identificador e detalhes.
-
-> Para produção, use um segredo JWT forte e exclusivo, senhas iniciais diferentes e HTTPS.
-
----
-
-## Decisões de projeto
-
-- **Capacidade não bloqueante:** a `CapacityPolicy` retorna avisos e nunca lança exceção para
-  excesso de limites, conforme o requisito.
-- **Domínio puro:** entidades e regras não conhecem JPA nem Spring. Entidades JPA separadas são
-  convertidas por mappers na infraestrutura.
-- **Transações via porta:** `TransactionRunner` permite que casos de uso controlem transações sem
-  depender do Spring.
-- **E-mail após o commit:** o envio ocorre depois do retorno do `TransactionRunner`; falhas de SMTP
-  são logadas e não desfazem o agendamento.
-- **Referências somente leitura:** tipos de paletização e faixas horárias são seedados e expostos
-  apenas para consulta.
-- **Relatório por período:** retorna total de agendamentos, total de pallets efetivos e a lista
-  detalhada.
-- **Frontend preparado para evoluir:** login, guarda de rotas, tratamento de 401, layout e
-  navegação por perfil já estão integrados à API.
-
----
-
-## Próximos passos
-
-1. Implementar as telas de agendamentos (listagem, filtros, formulário e avisos de capacidade).
-2. Implementar a tela de relatórios com filtro por período e exportação.
-3. Implementar as telas administrativas de usuários, tipos de caminhão e auditoria.
-4. Adicionar testes end-to-end do fluxo de agendamento e envio de e-mail.
+Projeto desenvolvido como parte do desafio técnico da Rede Krill.
