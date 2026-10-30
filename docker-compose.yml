@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: redekrill-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rede_krill}
+      POSTGRES_USER: ${POSTGRES_USER:-redekrill}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-redekrill}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redekrill} -d ${POSTGRES_DB:-rede_krill}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: redekrill-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: redekrill-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rede_krill}
+      DB_USERNAME: ${POSTGRES_USER:-redekrill}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-redekrill}
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      MAIL_FROM: ${MAIL_FROM:-nao-responda@redekrill.com}
+      JWT_SECRET: ${JWT_SECRET:-AD4rGbLMuVyPKUTpWwvnj0q3ZyhDuC6er6rmQE9+kNf4S5WL3Ysib9v+J4gdC1K0pWHLoKNLZuF+zjfSDpUcmA==}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@redekrill.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@12345}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: redekrill-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
