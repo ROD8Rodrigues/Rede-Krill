@@ -118,7 +118,7 @@ const navigation = [
   { name: 'dashboard', label: 'Painel', icon: 'pi pi-home' },
   { name: 'appointments', label: 'Agendamentos', icon: 'pi pi-calendar' },
   { name: 'reports', label: 'Relatórios', icon: 'pi pi-chart-bar' },
-  { name: 'truck-types', label: 'Tipos de caminhão', icon: 'pi pi-truck', adminOnly: true },
+  { name: 'truck-types', label: 'Tipos de caminhão', icon: 'pi pi-truck' },
   { name: 'users', label: 'Usuários', icon: 'pi pi-users', adminOnly: true },
   { name: 'audit', label: 'Auditoria', icon: 'pi pi-history', adminOnly: true }
 ]

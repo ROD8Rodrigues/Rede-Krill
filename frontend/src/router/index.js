@@ -3,6 +3,9 @@ import { useAuthStore } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import AppointmentsView from '../views/AppointmentsView.vue'
+import ReportsView from '../views/ReportsView.vue'
+import TruckTypesView from '../views/TruckTypesView.vue'
 import UnderConstructionView from '../views/UnderConstructionView.vue'
 
 const routes = [
@@ -30,33 +33,20 @@ const routes = [
       {
         path: 'appointments',
         name: 'appointments',
-        component: UnderConstructionView,
-        props: {
-          title: 'Agendamentos',
-          description:
-            'Cadastro, edição, exclusão e acompanhamento de capacidade serão disponibilizados nesta tela.'
-        },
+        component: AppointmentsView,
         meta: { title: 'Agendamentos' }
       },
       {
         path: 'reports',
         name: 'reports',
-        component: UnderConstructionView,
-        props: {
-          title: 'Relatórios',
-          description: 'O relatório de agendamentos com filtro por período será exibido aqui.'
-        },
+        component: ReportsView,
         meta: { title: 'Relatórios' }
       },
       {
         path: 'truck-types',
         name: 'truck-types',
-        component: UnderConstructionView,
-        props: {
-          title: 'Tipos de caminhão',
-          description: 'Manutenção do cadastro de tipos de caminhão.'
-        },
-        meta: { title: 'Tipos de caminhão', adminOnly: true }
+        component: TruckTypesView,
+        meta: { title: 'Tipos de caminhão' }
       },
       {
         path: 'users',
