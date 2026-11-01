@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <!-- Banner de Avisos de Capacidade (se houver avisos no último agendamento salvo) -->
+    <!-- Banner de Avisos (capacidade e/ou falha de e-mail) -->
     <div
       v-if="capacityWarnings.length > 0"
       class="rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm"
@@ -35,11 +35,8 @@
           <i class="pi pi-exclamation-triangle mt-0.5 text-lg text-amber-600" />
           <div>
             <h3 class="text-sm font-semibold text-amber-900">
-              Atenção: Limite operacional de capacidade ultrapassado
+              Atenção: o agendamento foi salvo com avisos
             </h3>
-            <p class="mt-0.5 text-xs text-amber-700">
-              O agendamento foi salvo com sucesso, porém excedeu os parâmetros de recebimento:
-            </p>
             <ul class="mt-2 list-inside list-disc space-y-1 text-xs font-medium text-amber-800">
               <li v-for="(warn, index) in capacityWarnings" :key="index">{{ warn }}</li>
             </ul>
@@ -54,6 +51,91 @@
           <i class="pi pi-times text-xs" />
         </button>
       </div>
+    </div>
+
+    <!-- Painel de Ocupação Diária e por Faixa -->
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900">Ocupação da capacidade</h3>
+          <p class="text-xs text-slate-500">
+            Percentuais informativos: 480 pallets por dia e 120 pallets por faixa horária.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-600" for="capacity-date">
+            Data
+          </label>
+          <input
+            id="capacity-date"
+            v-model="capacityDate"
+            type="date"
+            class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
+            @change="loadCapacity()"
+          />
+          <Button
+            icon="pi pi-refresh"
+            severity="secondary"
+            text
+            rounded
+            aria-label="Atualizar ocupação"
+            :loading="capacityLoading"
+            @click="loadCapacity()"
+          />
+        </div>
+      </div>
+
+      <div v-if="capacity" class="mt-4 space-y-4">
+        <div>
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <span>
+              Dia {{ formatDate(capacity.date) }}:
+              {{ capacity.dailyPallets }} de {{ capacity.dailyLimit }} pallets
+            </span>
+            <span :class="occupancyTextClass(capacity.dailyOccupancyPercentage)">
+              {{ formatPercent(capacity.dailyOccupancyPercentage) }}
+            </span>
+          </div>
+          <div class="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              class="h-full rounded-full transition-all"
+              :class="occupancyBarClass(capacity.dailyOccupancyPercentage)"
+              :style="{ width: barWidth(capacity.dailyOccupancyPercentage) }"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div
+            v-for="slot in capacity.slots"
+            :key="slot.timeSlot.id"
+            class="rounded-lg border border-slate-200 bg-slate-50/70 p-3"
+          >
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span class="inline-flex items-center gap-1.5">
+                <i class="pi pi-clock text-[10px] text-slate-500" />
+                {{ slot.timeSlot.label }}
+              </span>
+              <span :class="occupancyTextClass(slot.occupancyPercentage)">
+                {{ formatPercent(slot.occupancyPercentage) }}
+              </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">
+              {{ slot.pallets }} de {{ slot.limit }} pallets na faixa
+            </p>
+            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="occupancyBarClass(slot.occupancyPercentage)"
+                :style="{ width: barWidth(slot.occupancyPercentage) }"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <p v-else class="mt-4 text-xs text-slate-400">
+        {{ capacityLoading ? 'Carregando ocupação...' : 'Selecione uma data para consultar a ocupação.' }}
+      </p>
     </div>
 
     <!-- Barra de Filtros -->
@@ -129,6 +211,14 @@
           </div>
         </template>
 
+        <Column field="orderId" header="ID Pedido" sortable style="min-width: 120px">
+          <template #body="{ data }">
+            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800">
+              {{ data.orderId }}
+            </span>
+          </template>
+        </Column>
+
         <Column field="date" header="Data" sortable style="min-width: 110px">
           <template #body="{ data }">
             <span class="font-medium text-slate-900">{{ formatDate(data.date) }}</span>
@@ -144,11 +234,15 @@
           </template>
         </Column>
 
-        <Column header="Fornecedor" style="min-width: 200px">
+        <Column header="Fornecedor" style="min-width: 220px">
           <template #body="{ data }">
             <div>
               <p class="font-semibold text-slate-900">{{ data.supplierName }}</p>
               <p class="text-xs text-slate-400">{{ data.supplierEmail }}</p>
+              <p v-if="data.notes" class="mt-1 text-xs italic text-slate-500">
+                <i class="pi pi-comment mr-1 text-[10px]" />
+                {{ data.notes }}
+              </p>
             </div>
           </template>
         </Column>
@@ -182,16 +276,31 @@
           </template>
         </Column>
 
-        <Column header="Pallets" style="min-width: 140px">
+        <Column header="Pallets (dia / faixa)" style="min-width: 150px">
           <template #body="{ data }">
             <div class="text-xs">
-              <p class="text-slate-500">Informado: <span class="font-semibold text-slate-800">{{ data.palletQuantity }}</span></p>
-              <p class="text-slate-700">Efetivo: <span class="font-bold text-krill-700">{{ data.effectivePallets }}</span></p>
+              <p class="text-slate-500">Dia: <span class="font-semibold text-slate-800">{{ data.dailyPallets }}</span></p>
+              <p class="text-slate-700">Faixa: <span class="font-bold text-krill-700">{{ data.slotPallets }}</span></p>
             </div>
           </template>
         </Column>
 
-        <Column v-if="auth.isAdmin" header="Ações" style="width: 110px" alignFrozen="right">
+        <Column header="Status" style="min-width: 130px">
+          <template #body="{ data }">
+            <Tag
+              v-if="data.status === 'CANCELED'"
+              severity="danger"
+              value="Cancelado"
+              icon="pi pi-ban"
+            />
+            <Tag v-else severity="success" value="Ativo" icon="pi pi-check" />
+            <p v-if="data.status === 'CANCELED' && data.canceledBy" class="mt-1 text-[11px] text-slate-400">
+              por {{ data.canceledBy.name }}
+            </p>
+          </template>
+        </Column>
+
+        <Column v-if="auth.isAdmin" header="Ações" style="width: 120px" alignFrozen="right">
           <template #body="{ data }">
             <div class="flex items-center gap-1">
               <Button
@@ -201,17 +310,20 @@
                 rounded
                 size="small"
                 aria-label="Editar"
+                :disabled="data.status === 'CANCELED'"
                 @click="openEditModal(data)"
               />
               <Button
-                icon="pi pi-trash"
+                v-if="data.status !== 'CANCELED'"
+                icon="pi pi-ban"
                 severity="danger"
                 text
                 rounded
                 size="small"
-                aria-label="Excluir"
-                @click="confirmDelete(data)"
+                aria-label="Cancelar agendamento"
+                @click="confirmCancel(data)"
               />
+              <span v-else class="text-[11px] text-slate-400">—</span>
             </div>
           </template>
         </Column>
@@ -223,11 +335,41 @@
       v-model:visible="modalVisible"
       :header="editingId ? 'Editar Agendamento' : 'Novo Agendamento'"
       :modal="true"
-      :style="{ width: '560px' }"
+      :style="{ width: '620px' }"
       class="p-fluid"
     >
       <form @submit.prevent="saveAppointment" class="space-y-4 pt-2">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <!-- ID Pedido -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">
+              ID Pedido <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model.number="form.orderId"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="Ex.: 123456"
+              required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
+            />
+            <p class="mt-1 text-[11px] text-slate-400">Identificador único do pedido, sem repetição.</p>
+          </div>
+
+          <!-- Data do Agendamento -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">
+              Data do Agendamento <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model="form.date"
+              type="date"
+              required
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
+            />
+          </div>
+
           <!-- Nome do Fornecedor -->
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-slate-700 mb-1">
@@ -236,11 +378,12 @@
             <input
               v-model="form.supplierName"
               type="text"
-              maxlength="160"
+              maxlength="80"
               placeholder="Ex.: Distribuidora de Alimentos Silva"
               required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
+            <p class="mt-1 text-[11px] text-slate-400">Máximo de 80 caracteres.</p>
           </div>
 
           <!-- E-mail do Fornecedor -->
@@ -251,11 +394,12 @@
             <input
               v-model="form.supplierEmail"
               type="email"
-              maxlength="160"
+              maxlength="80"
               placeholder="fornecedor@empresa.com"
               required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
+            <p class="mt-1 text-[11px] text-slate-400">Máximo de 80 caracteres.</p>
           </div>
 
           <!-- Placa do Caminhão -->
@@ -285,19 +429,6 @@
               optionValue="id"
               placeholder="Selecione o tipo"
               class="w-full"
-            />
-          </div>
-
-          <!-- Data do Agendamento -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
-              Data do Agendamento <span class="text-red-500">*</span>
-            </label>
-            <input
-              v-model="form.date"
-              type="date"
-              required
-              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
           </div>
 
@@ -344,23 +475,51 @@
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
           </div>
+
+          <!-- Observação -->
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">
+              Observação
+            </label>
+            <textarea
+              v-model="form.notes"
+              rows="3"
+              maxlength="500"
+              placeholder="Informações adicionais sobre a entrega (opcional)"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
+            />
+            <p class="mt-1 text-[11px] text-slate-400">
+              {{ form.notes.length }}/500 caracteres.
+            </p>
+          </div>
         </div>
 
-        <!-- Card de Cálculo em Tempo Real de Pallets Efetivos -->
+        <!-- Card de Cálculo em Tempo Real de Pallets -->
         <div class="rounded-xl border border-krill-100 bg-krill-50/60 p-4">
           <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-krill-800">
-            <span>Cálculo de Capacidade</span>
+            <span>Impacto na capacidade</span>
             <span v-if="selectedMultiplier > 1" class="rounded bg-amber-100 px-2 py-0.5 text-amber-800">
-              Multiplicador: {{ selectedMultiplier }}x
+              Multiplicador: {{ selectedMultiplier }}x na faixa
             </span>
             <span v-else class="text-slate-500">Multiplicador: 1x</span>
           </div>
-          <div class="mt-2 flex items-baseline justify-between">
-            <span class="text-xs text-slate-600">Pallets Efetivos considerados:</span>
-            <span class="text-xl font-bold text-krill-700">{{ calculatedEffectivePallets }}</span>
+          <div class="mt-2 grid grid-cols-2 gap-3 text-xs text-slate-600">
+            <div>
+              <p>Pallets no dia</p>
+              <p class="text-xl font-bold text-slate-900">{{ calculatedDailyPallets }}</p>
+              <p class="text-[11px] text-slate-400">quantidade original</p>
+            </div>
+            <div>
+              <p>Pallets na faixa</p>
+              <p class="text-xl font-bold text-krill-700">{{ calculatedSlotPallets }}</p>
+              <p class="text-[11px] text-slate-400">com multiplicador</p>
+            </div>
           </div>
-          <p v-if="selectedMultiplier > 1" class="mt-1 text-[11px] text-amber-700">
-            * Cargas Não Paletizadas dobram o impacto na capacidade operacional.
+          <p v-if="selectedMultiplier > 1" class="mt-2 text-[11px] text-amber-700">
+            * Cargas Não Paletizadas dobram o impacto somente na faixa horária.
+          </p>
+          <p class="mt-2 text-[11px] text-slate-500">
+            Limites informativos: 480 pallets/dia e 120 pallets/faixa. O cadastro nunca é bloqueado.
           </p>
         </div>
 
@@ -410,6 +569,10 @@ const modalVisible = ref(false)
 const editingId = ref(null)
 const capacityWarnings = ref([])
 
+const capacityDate = ref(getTodayIso())
+const capacity = ref(null)
+const capacityLoading = ref(false)
+
 const appointments = ref([])
 const totalRecords = ref(0)
 const pageIndex = ref(0)
@@ -425,6 +588,7 @@ const filters = reactive({
 })
 
 const form = reactive({
+  orderId: null,
   supplierName: '',
   supplierEmail: '',
   truckPlate: '',
@@ -432,7 +596,8 @@ const form = reactive({
   timeSlotId: null,
   truckTypeId: null,
   palletizationTypeId: null,
-  palletQuantity: 1
+  palletQuantity: 1,
+  notes: ''
 })
 
 const selectedPalletization = computed(() =>
@@ -441,15 +606,38 @@ const selectedPalletization = computed(() =>
 
 const selectedMultiplier = computed(() => selectedPalletization.value?.capacityMultiplier || 1)
 
-const calculatedEffectivePallets = computed(() => {
-  const qty = Number(form.palletQuantity) || 0
-  return qty * selectedMultiplier.value
-})
+const calculatedDailyPallets = computed(() => Number(form.palletQuantity) || 0)
+
+const calculatedSlotPallets = computed(() =>
+  calculatedDailyPallets.value * selectedMultiplier.value
+)
 
 function formatDate(isoDate) {
   if (!isoDate) return ''
   const [year, month, day] = isoDate.split('-')
   return `${day}/${month}/${year}`
+}
+
+function formatPercent(value) {
+  return `${Number(value || 0).toFixed(1)}%`
+}
+
+function barWidth(value) {
+  return `${Math.min(Math.max(Number(value) || 0, 0), 100)}%`
+}
+
+function occupancyBarClass(value) {
+  const percent = Number(value) || 0
+  if (percent >= 100) return 'bg-red-500'
+  if (percent >= 80) return 'bg-amber-500'
+  return 'bg-krill-500'
+}
+
+function occupancyTextClass(value) {
+  const percent = Number(value) || 0
+  if (percent >= 100) return 'text-red-600'
+  if (percent >= 80) return 'text-amber-600'
+  return 'text-krill-700'
 }
 
 function getTodayIso() {
@@ -475,6 +663,25 @@ async function loadReferenceData() {
     truckTypes.value = tTypes
   } catch (error) {
     console.error('Erro ao carregar dados de referência:', error)
+  }
+}
+
+async function loadCapacity(date = capacityDate.value) {
+  if (!date) return
+  capacityLoading.value = true
+  try {
+    capacity.value = await appointmentService.getCapacity(date)
+  } catch (error) {
+    console.error('Erro ao carregar ocupação:', error)
+    capacity.value = null
+    toast.add({
+      severity: 'error',
+      summary: 'Erro',
+      detail: 'Não foi possível consultar a ocupação da data selecionada.',
+      life: 5000
+    })
+  } finally {
+    capacityLoading.value = false
   }
 }
 
@@ -524,6 +731,7 @@ function openCreateModal() {
   if (!auth.isAdmin) return
 
   editingId.value = null
+  form.orderId = null
   form.supplierName = ''
   form.supplierEmail = ''
   form.truckPlate = ''
@@ -532,13 +740,15 @@ function openCreateModal() {
   form.truckTypeId = truckTypes.value[0]?.id || null
   form.palletizationTypeId = palletizationTypes.value[0]?.id || null
   form.palletQuantity = 1
+  form.notes = ''
   modalVisible.value = true
 }
 
 function openEditModal(appointment) {
-  if (!auth.isAdmin) return
+  if (!auth.isAdmin || appointment.status === 'CANCELED') return
 
   editingId.value = appointment.id
+  form.orderId = appointment.orderId
   form.supplierName = appointment.supplierName
   form.supplierEmail = appointment.supplierEmail
   form.truckPlate = appointment.truckPlate
@@ -547,15 +757,27 @@ function openEditModal(appointment) {
   form.truckTypeId = appointment.truckType?.id || null
   form.palletizationTypeId = appointment.palletizationType?.id || null
   form.palletQuantity = appointment.palletQuantity
+  form.notes = appointment.notes || ''
   modalVisible.value = true
 }
 
 async function saveAppointment() {
   if (!auth.isAdmin) return
 
+  if (!Number.isInteger(Number(form.orderId)) || Number(form.orderId) <= 0) {
+    toast.add({
+      severity: 'error',
+      summary: 'ID Pedido inválido',
+      detail: 'Informe um ID Pedido inteiro maior que zero.',
+      life: 5000
+    })
+    return
+  }
+
   saving.value = true
   try {
     const payload = {
+      orderId: Number(form.orderId),
       supplierName: form.supplierName.trim(),
       supplierEmail: form.supplierEmail.trim(),
       truckPlate: form.truckPlate.trim().toUpperCase(),
@@ -563,24 +785,25 @@ async function saveAppointment() {
       timeSlotId: form.timeSlotId,
       truckTypeId: form.truckTypeId,
       palletizationTypeId: form.palletizationTypeId,
-      palletQuantity: form.palletQuantity
+      palletQuantity: form.palletQuantity,
+      notes: form.notes.trim() || null
     }
 
-    let result
-    if (editingId.value) {
-      result = await appointmentService.updateAppointment(editingId.value, payload)
-    } else {
-      result = await appointmentService.createAppointment(payload)
-    }
+    const isEditing = Boolean(editingId.value)
+    const result = isEditing
+      ? await appointmentService.updateAppointment(editingId.value, payload)
+      : await appointmentService.createAppointment(payload)
 
     modalVisible.value = false
-    await loadAppointments()
+    capacityDate.value = payload.date
+    await Promise.all([loadAppointments(), loadCapacity(payload.date)])
 
     if (result?.warnings && result.warnings.length > 0) {
       capacityWarnings.value = result.warnings
+      const emailFailed = result.emailSent === false
       toast.add({
         severity: 'warn',
-        summary: 'Salvo com aviso de capacidade',
+        summary: emailFailed ? 'Salvo sem envio de e-mail' : 'Salvo com avisos',
         detail: result.warnings.join(' | '),
         life: 8000
       })
@@ -589,7 +812,7 @@ async function saveAppointment() {
       toast.add({
         severity: 'success',
         summary: 'Sucesso',
-        detail: editingId.value
+        detail: isEditing
           ? 'Agendamento atualizado com sucesso.'
           : 'Agendamento cadastrado e e-mail de confirmação enviado.',
         life: 5000
@@ -608,32 +831,32 @@ async function saveAppointment() {
   }
 }
 
-function confirmDelete(appointment) {
+function confirmCancel(appointment) {
   if (!auth.isAdmin) return
 
   confirm.require({
-    header: 'Confirmar Exclusão',
-    message: `Deseja realmente excluir o agendamento do fornecedor "${appointment.supplierName}" em ${formatDate(appointment.date)}?`,
+    header: 'Confirmar Cancelamento',
+    message: `Deseja cancelar o agendamento do fornecedor "${appointment.supplierName}" (ID Pedido ${appointment.orderId}) em ${formatDate(appointment.date)}? O registro será mantido no histórico.`,
     icon: 'pi pi-exclamation-triangle',
-    rejectLabel: 'Cancelar',
-    acceptLabel: 'Excluir',
+    rejectLabel: 'Voltar',
+    acceptLabel: 'Cancelar agendamento',
     rejectClass: 'p-button-secondary p-button-text',
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await appointmentService.deleteAppointment(appointment.id)
+        await appointmentService.cancelAppointment(appointment.id)
         toast.add({
           severity: 'success',
-          summary: 'Excluído',
-          detail: 'Agendamento excluído com sucesso.',
+          summary: 'Cancelado',
+          detail: 'Agendamento cancelado e mantido no histórico.',
           life: 4000
         })
-        await loadAppointments()
+        await Promise.all([loadAppointments(), loadCapacity()])
       } catch (error) {
         toast.add({
           severity: 'error',
-          summary: 'Erro ao excluir',
-          detail: error.response?.data?.message || 'Não foi possível excluir o agendamento.',
+          summary: 'Erro ao cancelar',
+          detail: error.response?.data?.message || 'Não foi possível cancelar o agendamento.',
           life: 5000
         })
       }
@@ -643,6 +866,6 @@ function confirmDelete(appointment) {
 
 onMounted(async () => {
   await loadReferenceData()
-  await loadAppointments()
+  await Promise.all([loadAppointments(), loadCapacity()])
 })
 </script>

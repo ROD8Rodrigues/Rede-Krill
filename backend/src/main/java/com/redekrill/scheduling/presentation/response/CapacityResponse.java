@@ -4,6 +4,8 @@ public record CapacityResponse(
         long dailyPallets,
         long slotPallets,
         int dailyLimit,
-        int slotLimit
+        int slotLimit,
+        double dailyOccupancyPercentage,
+        double slotOccupancyPercentage
 ) {
 }

@@ -5,10 +5,12 @@ import com.redekrill.scheduling.application.dto.appointment.CreateAppointmentCom
 import com.redekrill.scheduling.application.port.EmailNotifier;
 import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
+import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.Appointment;
 import com.redekrill.scheduling.domain.model.AuditAction;
+import com.redekrill.scheduling.domain.model.PalletizationType;
 import com.redekrill.scheduling.domain.policy.CapacityPolicy;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.domain.repository.PalletizationTypeRepository;
@@ -20,7 +22,6 @@ import com.redekrill.scheduling.support.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -79,19 +80,25 @@ class CreateAppointmentUseCaseTest {
         stubReferences(TestFixtures.nonPalletized());
         when(userRepository.findByEmail("admin@redekrill.com"))
                 .thenReturn(Optional.of(TestFixtures.user()));
-        when(appointmentRepository.sumEffectivePalletsByDate(TestFixtures.DATE)).thenReturn(470L);
-        when(appointmentRepository.sumEffectivePalletsByDateAndTimeSlot(TestFixtures.DATE, 1L)).thenReturn(90L);
+        when(appointmentRepository.sumDailyPalletsByDate(TestFixtures.DATE)).thenReturn(475L);
+        when(appointmentRepository.sumSlotPalletsByDateAndTimeSlot(TestFixtures.DATE, 1L)).thenReturn(90L);
         when(appointmentRepository.save(any(Appointment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Appointment.class).withId(10L));
 
         AppointmentCommandResult result = useCase.execute(nonPalletizedCommand(10));
 
         assertThat(result.appointment().id()).isEqualTo(10L);
+        assertThat(result.appointment().orderId()).isEqualTo(TestFixtures.ORDER_ID);
+        assertThat(result.appointment().palletQuantity()).isEqualTo(10);
+        assertThat(result.appointment().dailyPallets()).isEqualTo(10);
         assertThat(result.appointment().effectivePallets()).isEqualTo(20);
+        assertThat(result.appointment().slotPallets()).isEqualTo(20);
         assertThat(result.warnings()).hasSize(1);
         assertThat(result.warnings().getFirst()).contains("Limite diário");
-        assertThat(result.capacity().dailyPallets()).isEqualTo(490);
+        assertThat(result.capacity().dailyPallets()).isEqualTo(485);
         assertThat(result.capacity().slotPallets()).isEqualTo(110);
+        assertThat(result.capacity().dailyOccupancyPercentage()).isEqualTo(101.0);
+        assertThat(result.emailSent()).isTrue();
 
         verify(auditService).record(
                 eq("admin@redekrill.com"),
@@ -108,21 +115,21 @@ class CreateAppointmentUseCaseTest {
         stubReferences(TestFixtures.nonPalletized());
         when(userRepository.findByEmail("admin@redekrill.com"))
                 .thenReturn(Optional.of(TestFixtures.user()));
-        when(appointmentRepository.sumEffectivePalletsByDate(TestFixtures.DATE)).thenReturn(480L);
-        when(appointmentRepository.sumEffectivePalletsByDateAndTimeSlot(TestFixtures.DATE, 1L)).thenReturn(120L);
+        when(appointmentRepository.sumDailyPalletsByDate(TestFixtures.DATE)).thenReturn(480L);
+        when(appointmentRepository.sumSlotPalletsByDateAndTimeSlot(TestFixtures.DATE, 1L)).thenReturn(120L);
         when(appointmentRepository.save(any(Appointment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Appointment.class).withId(11L));
 
         AppointmentCommandResult result = useCase.execute(nonPalletizedCommand(1));
 
         assertThat(result.warnings()).hasSize(2);
-        assertThat(result.capacity().dailyPallets()).isEqualTo(482);
+        assertThat(result.capacity().dailyPallets()).isEqualTo(481);
         assertThat(result.capacity().slotPallets()).isEqualTo(122);
         verify(appointmentRepository).save(any(Appointment.class));
     }
 
     @Test
-    void keepsAppointmentWhenEmailDeliveryFails() {
+    void keepsAppointmentAndExplicitlyWarnsWhenEmailDeliveryFails() {
         stubReferences(TestFixtures.palletized());
         when(userRepository.findByEmail("admin@redekrill.com"))
                 .thenReturn(Optional.of(TestFixtures.user()));
@@ -135,9 +142,27 @@ class CreateAppointmentUseCaseTest {
 
         assertThat(result.appointment().id()).isEqualTo(12L);
         assertThat(result.appointment().effectivePallets()).isEqualTo(5);
+        assertThat(result.emailSent()).isFalse();
+        assertThat(result.warnings())
+                .contains("O agendamento foi salvo, mas não foi possível enviar o e-mail de "
+                        + "confirmação. O fornecedor não foi notificado.");
         verify(appointmentRepository).save(any(Appointment.class));
         verify(auditService).record(eq("admin@redekrill.com"), eq(AuditAction.CREATE),
                 eq("Appointment"), eq(12L), any());
+    }
+
+    @Test
+    void rejectsDuplicatedOrderId() {
+        stubReferences(TestFixtures.palletized());
+        when(userRepository.findByEmail("admin@redekrill.com"))
+                .thenReturn(Optional.of(TestFixtures.user()));
+        when(appointmentRepository.existsByOrderId(TestFixtures.ORDER_ID)).thenReturn(true);
+
+        assertThatThrownBy(() -> useCase.execute(palletizedCommand(5)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Já existe um agendamento com o ID Pedido 1000.");
+
+        verify(appointmentRepository, never()).save(any());
     }
 
     @Test
@@ -148,10 +173,21 @@ class CreateAppointmentUseCaseTest {
     }
 
     @Test
+    void rejectsMissingOrderId() {
+        CreateAppointmentCommand command = new CreateAppointmentCommand(
+                null, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
+                1L, 1L, 1L, 10, null, "admin@redekrill.com");
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("ID Pedido é obrigatório e deve ser maior que zero.");
+    }
+
+    @Test
     void rejectsMissingDate() {
         CreateAppointmentCommand command = new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", null,
-                1L, 1L, 1L, 10, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23", null,
+                1L, 1L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(DomainException.class)
@@ -161,8 +197,8 @@ class CreateAppointmentUseCaseTest {
     @Test
     void rejectsMissingReferences() {
         CreateAppointmentCommand command = new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                null, 1L, 1L, 10, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, null, 1L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(DomainException.class)
@@ -172,8 +208,8 @@ class CreateAppointmentUseCaseTest {
     @Test
     void rejectsMissingActor() {
         CreateAppointmentCommand command = new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 1L, 10, "  ");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, 10, null, "  ");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(AuthenticationFailedException.class)
@@ -196,8 +232,8 @@ class CreateAppointmentUseCaseTest {
         when(truckTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         CreateAppointmentCommand command = new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 99L, 1L, 10, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 99L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -211,8 +247,8 @@ class CreateAppointmentUseCaseTest {
         when(palletizationTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         CreateAppointmentCommand command = new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 99L, 10, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 99L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -240,7 +276,7 @@ class CreateAppointmentUseCaseTest {
                 .isInstanceOf(AuthenticationFailedException.class);
     }
 
-    private void stubReferences(com.redekrill.scheduling.domain.model.PalletizationType palletizationType) {
+    private void stubReferences(PalletizationType palletizationType) {
         when(timeSlotRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.timeSlot()));
         when(truckTypeRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.truckType()));
         when(palletizationTypeRepository.findById(palletizationType.id()))
@@ -249,19 +285,19 @@ class CreateAppointmentUseCaseTest {
 
     private CreateAppointmentCommand nonPalletizedCommand(int quantity) {
         return new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 2L, quantity, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 2L, quantity, null, "admin@redekrill.com");
     }
 
     private CreateAppointmentCommand palletizedCommand(int quantity) {
         return new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 1L, quantity, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, quantity, null, "admin@redekrill.com");
     }
 
     private CreateAppointmentCommand commandWithTimeSlot(Long timeSlotId) {
         return new CreateAppointmentCommand(
-                "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                timeSlotId, 1L, 1L, 10, "admin@redekrill.com");
+                TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, timeSlotId, 1L, 1L, 10, null, "admin@redekrill.com");
     }
 }

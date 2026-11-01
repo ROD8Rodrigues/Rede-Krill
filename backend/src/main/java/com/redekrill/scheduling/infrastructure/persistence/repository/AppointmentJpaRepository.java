@@ -14,11 +14,11 @@ import java.util.Optional;
 
 public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEntity, Long> {
 
-    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy"})
+    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
     @Query("select a from AppointmentJpaEntity a where a.id = :id")
     Optional<AppointmentJpaEntity> findDetailedById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy"})
+    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
     @Query("""
             select a from AppointmentJpaEntity a
             where a.appointmentDate between :startDate and :endDate
@@ -28,7 +28,7 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
                                       @Param("endDate") LocalDate endDate,
                                       Pageable pageable);
 
-    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy"})
+    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
     @Query("""
             select a from AppointmentJpaEntity a
             where a.appointmentDate between :startDate and :endDate
@@ -38,32 +38,44 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
                                             @Param("endDate") LocalDate endDate);
 
     @Query("""
+            select sum(a.palletQuantity) from AppointmentJpaEntity a
+            where a.appointmentDate = :date
+              and a.status = com.redekrill.scheduling.domain.model.AppointmentStatus.ACTIVE
+            """)
+    Long sumDailyPalletsByDate(@Param("date") LocalDate date);
+
+    @Query("""
+            select sum(a.palletQuantity) from AppointmentJpaEntity a
+            where a.appointmentDate = :date
+              and a.status = com.redekrill.scheduling.domain.model.AppointmentStatus.ACTIVE
+              and a.id <> :appointmentId
+            """)
+    Long sumDailyPalletsByDateExcluding(@Param("date") LocalDate date,
+                                        @Param("appointmentId") Long appointmentId);
+
+    @Query("""
             select sum(a.effectivePallets) from AppointmentJpaEntity a
             where a.appointmentDate = :date
+              and a.timeSlot.id = :timeSlotId
+              and a.status = com.redekrill.scheduling.domain.model.AppointmentStatus.ACTIVE
             """)
-    Long sumEffectivePalletsByDate(@Param("date") LocalDate date);
+    Long sumSlotPalletsByDateAndTimeSlot(@Param("date") LocalDate date,
+                                         @Param("timeSlotId") Long timeSlotId);
 
     @Query("""
             select sum(a.effectivePallets) from AppointmentJpaEntity a
-            where a.appointmentDate = :date and a.id <> :appointmentId
+            where a.appointmentDate = :date
+              and a.timeSlot.id = :timeSlotId
+              and a.status = com.redekrill.scheduling.domain.model.AppointmentStatus.ACTIVE
+              and a.id <> :appointmentId
             """)
-    Long sumEffectivePalletsByDateExcluding(@Param("date") LocalDate date,
-                                            @Param("appointmentId") Long appointmentId);
+    Long sumSlotPalletsByDateAndTimeSlotExcluding(@Param("date") LocalDate date,
+                                                  @Param("timeSlotId") Long timeSlotId,
+                                                  @Param("appointmentId") Long appointmentId);
 
-    @Query("""
-            select sum(a.effectivePallets) from AppointmentJpaEntity a
-            where a.appointmentDate = :date and a.timeSlot.id = :timeSlotId
-            """)
-    Long sumEffectivePalletsByDateAndTimeSlot(@Param("date") LocalDate date,
-                                              @Param("timeSlotId") Long timeSlotId);
+    boolean existsByOrderId(Long orderId);
 
-    @Query("""
-            select sum(a.effectivePallets) from AppointmentJpaEntity a
-            where a.appointmentDate = :date and a.timeSlot.id = :timeSlotId and a.id <> :appointmentId
-            """)
-    Long sumEffectivePalletsByDateAndTimeSlotExcluding(@Param("date") LocalDate date,
-                                                       @Param("timeSlotId") Long timeSlotId,
-                                                       @Param("appointmentId") Long appointmentId);
+    boolean existsByOrderIdAndIdNot(Long orderId, Long appointmentId);
 
     boolean existsByTruckTypeId(Long truckTypeId);
 }

@@ -7,6 +7,7 @@ public record AppointmentReportResponse(
         LocalDate startDate,
         LocalDate endDate,
         int totalAppointments,
+        long totalPallets,
         long totalEffectivePallets,
         List<AppointmentResponse> appointments
 ) {

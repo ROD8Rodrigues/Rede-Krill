@@ -2,11 +2,13 @@ package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
 import com.redekrill.scheduling.application.dto.appointment.AppointmentResult;
+import com.redekrill.scheduling.application.dto.appointment.CapacityOverviewResult;
 import com.redekrill.scheduling.application.dto.appointment.CreateAppointmentCommand;
 import com.redekrill.scheduling.application.dto.appointment.UpdateAppointmentCommand;
+import com.redekrill.scheduling.application.usecase.appointment.CancelAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.CreateAppointmentUseCase;
-import com.redekrill.scheduling.application.usecase.appointment.DeleteAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.GetAppointmentUseCase;
+import com.redekrill.scheduling.application.usecase.appointment.GetCapacityOverviewUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.ListAppointmentsUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.UpdateAppointmentUseCase;
 import com.redekrill.scheduling.presentation.mapper.WebMapper;
@@ -14,6 +16,7 @@ import com.redekrill.scheduling.presentation.request.CreateAppointmentRequest;
 import com.redekrill.scheduling.presentation.request.UpdateAppointmentRequest;
 import com.redekrill.scheduling.presentation.response.AppointmentCommandResponse;
 import com.redekrill.scheduling.presentation.response.AppointmentResponse;
+import com.redekrill.scheduling.presentation.response.CapacityOverviewResponse;
 import com.redekrill.scheduling.presentation.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -44,20 +47,23 @@ public class AppointmentController {
 
     private final CreateAppointmentUseCase createAppointmentUseCase;
     private final UpdateAppointmentUseCase updateAppointmentUseCase;
-    private final DeleteAppointmentUseCase deleteAppointmentUseCase;
+    private final CancelAppointmentUseCase cancelAppointmentUseCase;
     private final GetAppointmentUseCase getAppointmentUseCase;
     private final ListAppointmentsUseCase listAppointmentsUseCase;
+    private final GetCapacityOverviewUseCase getCapacityOverviewUseCase;
 
     public AppointmentController(CreateAppointmentUseCase createAppointmentUseCase,
                                  UpdateAppointmentUseCase updateAppointmentUseCase,
-                                 DeleteAppointmentUseCase deleteAppointmentUseCase,
+                                 CancelAppointmentUseCase cancelAppointmentUseCase,
                                  GetAppointmentUseCase getAppointmentUseCase,
-                                 ListAppointmentsUseCase listAppointmentsUseCase) {
+                                 ListAppointmentsUseCase listAppointmentsUseCase,
+                                 GetCapacityOverviewUseCase getCapacityOverviewUseCase) {
         this.createAppointmentUseCase = createAppointmentUseCase;
         this.updateAppointmentUseCase = updateAppointmentUseCase;
-        this.deleteAppointmentUseCase = deleteAppointmentUseCase;
+        this.cancelAppointmentUseCase = cancelAppointmentUseCase;
         this.getAppointmentUseCase = getAppointmentUseCase;
         this.listAppointmentsUseCase = listAppointmentsUseCase;
+        this.getCapacityOverviewUseCase = getCapacityOverviewUseCase;
     }
 
     @GetMapping
@@ -74,6 +80,15 @@ public class AppointmentController {
         );
     }
 
+    @GetMapping("/capacity")
+    @Operation(summary = "Consulta a ocupação percentual diária e por faixa horária")
+    public CapacityOverviewResponse capacity(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        CapacityOverviewResult result = getCapacityOverviewUseCase.execute(date);
+        return WebMapper.toResponse(result);
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Busca um agendamento por identificador")
     public AppointmentResponse get(@PathVariable Long id) {
@@ -82,13 +97,14 @@ public class AppointmentController {
     }
 
     @PostMapping
-    @Operation(summary = "Cria um agendamento e envia e-mail de confirmação ao fornecedor")
+    @Operation(summary = "Cria um agendamento e tenta enviar o e-mail de confirmação ao fornecedor")
     public ResponseEntity<AppointmentCommandResponse> create(
             @Valid @RequestBody CreateAppointmentRequest request,
             Authentication authentication) {
 
         AppointmentCommandResult result = createAppointmentUseCase.execute(
                 new CreateAppointmentCommand(
+                        request.orderId(),
                         request.supplierName(),
                         request.supplierEmail(),
                         request.truckPlate(),
@@ -97,6 +113,7 @@ public class AppointmentController {
                         request.truckTypeId(),
                         request.palletizationTypeId(),
                         request.palletQuantity(),
+                        request.notes(),
                         authentication.getName()
                 )
         );
@@ -105,7 +122,7 @@ public class AppointmentController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Atualiza um agendamento")
+    @Operation(summary = "Atualiza um agendamento ativo")
     public AppointmentCommandResponse update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateAppointmentRequest request,
@@ -114,6 +131,7 @@ public class AppointmentController {
         AppointmentCommandResult result = updateAppointmentUseCase.execute(
                 new UpdateAppointmentCommand(
                         id,
+                        request.orderId(),
                         request.supplierName(),
                         request.supplierEmail(),
                         request.truckPlate(),
@@ -122,6 +140,7 @@ public class AppointmentController {
                         request.truckTypeId(),
                         request.palletizationTypeId(),
                         request.palletQuantity(),
+                        request.notes(),
                         authentication.getName()
                 )
         );
@@ -131,8 +150,8 @@ public class AppointmentController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Exclui um agendamento")
-    public void delete(@PathVariable Long id, Authentication authentication) {
-        deleteAppointmentUseCase.execute(id, authentication.getName());
+    @Operation(summary = "Cancela logicamente um agendamento, preservando o histórico")
+    public void cancel(@PathVariable Long id, Authentication authentication) {
+        cancelAppointmentUseCase.execute(id, authentication.getName());
     }
 }

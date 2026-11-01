@@ -56,6 +56,7 @@ public class SmtpEmailNotifier implements EmailNotifier {
 
     private String buildHtml(Appointment appointment, List<String> warnings) {
         Context context = new Context(PT_BR);
+        context.setVariable("orderId", appointment.orderId());
         context.setVariable("supplierName", appointment.supplierName());
         context.setVariable("supplierEmail", appointment.supplierEmail());
         context.setVariable("truckPlate", appointment.truckPlate());

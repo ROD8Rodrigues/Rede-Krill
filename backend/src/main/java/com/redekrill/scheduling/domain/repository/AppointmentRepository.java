@@ -17,15 +17,29 @@ public interface AppointmentRepository {
 
     List<Appointment> findByPeriod(LocalDate startDate, LocalDate endDate);
 
-    void deleteById(Long id);
+    /**
+     * Soma a quantidade declarada (sem multiplicador) dos agendamentos ativos do dia.
+     */
+    long sumDailyPalletsByDate(LocalDate date);
 
-    long sumEffectivePalletsByDate(LocalDate date);
+    /**
+     * Soma a quantidade declarada dos agendamentos ativos do dia, excluindo um agendamento.
+     */
+    long sumDailyPalletsByDateExcluding(LocalDate date, Long appointmentId);
 
-    long sumEffectivePalletsByDateExcluding(LocalDate date, Long appointmentId);
+    /**
+     * Soma a quantidade considerada na faixa (com multiplicador) dos agendamentos ativos.
+     */
+    long sumSlotPalletsByDateAndTimeSlot(LocalDate date, Long timeSlotId);
 
-    long sumEffectivePalletsByDateAndTimeSlot(LocalDate date, Long timeSlotId);
+    /**
+     * Soma a quantidade considerada na faixa, excluindo um agendamento.
+     */
+    long sumSlotPalletsByDateAndTimeSlotExcluding(LocalDate date, Long timeSlotId, Long appointmentId);
 
-    long sumEffectivePalletsByDateAndTimeSlotExcluding(LocalDate date, Long timeSlotId, Long appointmentId);
+    boolean existsByOrderId(Long orderId);
+
+    boolean existsByOrderIdAndIdNot(Long orderId, Long appointmentId);
 
     boolean existsByTruckTypeId(Long truckTypeId);
 }

@@ -11,7 +11,7 @@ class CapacityPolicyTest {
 
     @Test
     void keepsAppointmentWithoutWarningsWhenLimitsAreNotReached() {
-        CapacityAssessment assessment = policy.assess(100, 50, 50);
+        CapacityAssessment assessment = policy.assess(100, 50, 50, 50);
 
         assertThat(assessment.dailyPallets()).isEqualTo(150);
         assertThat(assessment.slotPallets()).isEqualTo(100);
@@ -19,11 +19,13 @@ class CapacityPolicyTest {
         assertThat(assessment.slotLimit()).isEqualTo(CapacityPolicy.TIME_SLOT_LIMIT);
         assertThat(assessment.hasWarnings()).isFalse();
         assertThat(assessment.warnings()).isEmpty();
+        assertThat(assessment.dailyOccupancyPercentage()).isEqualTo(31.3);
+        assertThat(assessment.slotOccupancyPercentage()).isEqualTo(83.3);
     }
 
     @Test
     void doesNotWarnWhenTotalsAreExactlyAtTheLimits() {
-        CapacityAssessment assessment = policy.assess(460, 100, 20);
+        CapacityAssessment assessment = policy.assess(460, 100, 20, 20);
 
         assertThat(assessment.dailyPallets()).isEqualTo(480);
         assertThat(assessment.slotPallets()).isEqualTo(120);
@@ -32,7 +34,7 @@ class CapacityPolicyTest {
 
     @Test
     void warnsWhenOnlyDailyLimitIsExceeded() {
-        CapacityAssessment assessment = policy.assess(475, 10, 10);
+        CapacityAssessment assessment = policy.assess(475, 10, 10, 10);
 
         assertThat(assessment.dailyPallets()).isEqualTo(485);
         assertThat(assessment.slotPallets()).isEqualTo(20);
@@ -43,7 +45,7 @@ class CapacityPolicyTest {
 
     @Test
     void warnsWhenOnlySlotLimitIsExceeded() {
-        CapacityAssessment assessment = policy.assess(100, 115, 10);
+        CapacityAssessment assessment = policy.assess(100, 115, 10, 10);
 
         assertThat(assessment.dailyPallets()).isEqualTo(110);
         assertThat(assessment.slotPallets()).isEqualTo(125);
@@ -54,7 +56,7 @@ class CapacityPolicyTest {
 
     @Test
     void warnsForBothLimitsAtOnce() {
-        CapacityAssessment assessment = policy.assess(470, 115, 20);
+        CapacityAssessment assessment = policy.assess(470, 115, 20, 20);
 
         assertThat(assessment.warnings()).hasSize(2);
         assertThat(assessment.warnings().get(0)).contains("Limite diário");
@@ -64,22 +66,37 @@ class CapacityPolicyTest {
     @Test
     void rejectsNegativeTotals() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> policy.assess(-1, 0, 10))
+                .isThrownBy(() -> policy.assess(-1, 0, 10, 10))
                 .withMessage("Totais de pallets não podem ser negativos.");
 
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> policy.assess(0, -1, 10))
+                .isThrownBy(() -> policy.assess(0, -1, 10, 10))
                 .withMessage("Totais de pallets não podem ser negativos.");
     }
 
     @Test
-    void rejectsNonPositiveEffectivePallets() {
+    void rejectsNonPositiveDailyPallets() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> policy.assess(0, 0, 0))
-                .withMessage("Pallets efetivos do agendamento devem ser positivos.");
+                .isThrownBy(() -> policy.assess(0, 0, 0, 1))
+                .withMessage("Pallets do agendamento devem ser positivos.");
 
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> policy.assess(0, 0, -5))
-                .withMessage("Pallets efetivos do agendamento devem ser positivos.");
+                .isThrownBy(() -> policy.assess(0, 0, -5, 1))
+                .withMessage("Pallets do agendamento devem ser positivos.");
+    }
+
+    @Test
+    void rejectsNonPositiveSlotPallets() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> policy.assess(0, 0, 1, 0))
+                .withMessage("Pallets da faixa devem ser positivos.");
+    }
+
+    @Test
+    void calculatesOccupancyPercentageRoundedToOneDecimal() {
+        assertThat(CapacityPolicy.occupancyPercentage(0, 480)).isZero();
+        assertThat(CapacityPolicy.occupancyPercentage(240, 480)).isEqualTo(50.0);
+        assertThat(CapacityPolicy.occupancyPercentage(500, 480)).isEqualTo(104.2);
+        assertThat(CapacityPolicy.occupancyPercentage(10, 0)).isZero();
     }
 }

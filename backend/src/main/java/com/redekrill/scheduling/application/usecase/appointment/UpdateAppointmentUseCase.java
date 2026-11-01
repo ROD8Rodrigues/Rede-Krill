@@ -7,6 +7,7 @@ import com.redekrill.scheduling.application.dto.appointment.UpdateAppointmentCom
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
+import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.Appointment;
@@ -68,7 +69,13 @@ public class UpdateAppointmentUseCase {
                     .findById(command.palletizationTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException("Tipo de paletização não encontrado."));
 
+            if (appointmentRepository.existsByOrderIdAndIdNot(command.orderId(), command.id())) {
+                throw new ConflictException(
+                        "Já existe um agendamento com o ID Pedido %d.".formatted(command.orderId()));
+            }
+
             Appointment updated = existing.update(
+                    command.orderId(),
                     command.supplierName(),
                     command.supplierEmail(),
                     command.truckPlate(),
@@ -77,15 +84,16 @@ public class UpdateAppointmentUseCase {
                     truckType,
                     palletizationType,
                     command.palletQuantity(),
+                    command.notes(),
                     Instant.now(clock)
             );
 
-            long dailyPallets = appointmentRepository.sumEffectivePalletsByDateExcluding(
+            long dailyPallets = appointmentRepository.sumDailyPalletsByDateExcluding(
                     updated.date(), updated.id());
-            long slotPallets = appointmentRepository.sumEffectivePalletsByDateAndTimeSlotExcluding(
+            long slotPallets = appointmentRepository.sumSlotPalletsByDateAndTimeSlotExcluding(
                     updated.date(), timeSlot.id(), updated.id());
             CapacityAssessment assessment = capacityPolicy.assess(
-                    dailyPallets, slotPallets, updated.effectivePallets());
+                    dailyPallets, slotPallets, updated.dailyPallets(), updated.slotPallets());
 
             Appointment saved = appointmentRepository.save(updated);
             auditService.record(
@@ -93,9 +101,9 @@ public class UpdateAppointmentUseCase {
                     AuditAction.UPDATE,
                     "Appointment",
                     saved.id(),
-                    "Agendamento atualizado: fornecedor=%s, data=%s, faixa=%s, pallets=%d, efetivos=%d"
-                            .formatted(saved.supplierName(), saved.date(), saved.timeSlot().label(),
-                                    saved.palletQuantity(), saved.effectivePallets())
+                    "Agendamento atualizado: ID Pedido=%d, fornecedor=%s, data=%s, faixa=%s, pallets=%d, faixa=%d"
+                            .formatted(saved.orderId(), saved.supplierName(), saved.date(),
+                                    saved.timeSlot().label(), saved.dailyPallets(), saved.slotPallets())
             );
 
             return new PreparedAppointment(saved, assessment);
@@ -105,7 +113,8 @@ public class UpdateAppointmentUseCase {
         return new AppointmentCommandResult(
                 AppointmentResult.from(prepared.appointment()),
                 assessment.warnings(),
-                CapacityResult.from(assessment)
+                CapacityResult.from(assessment),
+                null
         );
     }
 
@@ -115,6 +124,9 @@ public class UpdateAppointmentUseCase {
         }
         if (command.id() == null) {
             throw new DomainException("Identificador do agendamento é obrigatório.");
+        }
+        if (command.orderId() == null || command.orderId() <= 0) {
+            throw new DomainException("ID Pedido é obrigatório e deve ser maior que zero.");
         }
         if (command.date() == null) {
             throw new DomainException("Data do agendamento é obrigatória.");

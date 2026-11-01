@@ -37,22 +37,38 @@ A aplicação permite cadastrar agendamentos, consultar horários, acompanhar a 
 
 Atualmente, o projeto conta com:
 
-- Login com autenticação JWT.
+- Login com autenticação JWT e logout auditado.
 - Controle de acesso para administradores e usuários.
-- Cadastro, consulta, edição e exclusão de agendamentos.
-- Cálculo de pallets conforme o tipo de paletização.
-- Consulta de capacidade por dia e faixa horária.
-- Envio de confirmação por e-mail ao fornecedor.
-- Registro de operações em log de auditoria.
-- Consulta de agendamentos por período.
+- Cadastro, consulta, edição e cancelamento lógico de agendamentos, com ID Pedido único e observação.
+- Histórico de cancelamentos preservado em listagens, relatórios e auditoria.
+- Cálculo de pallets conforme o tipo de paletização, com multiplicador aplicado somente na faixa horária.
+- Consulta de ocupação percentual por dia e por faixa horária.
+- Envio de confirmação por e-mail ao fornecedor, com aviso explícito em caso de falha.
+- Registro de operações em log de auditoria (CREATE, UPDATE, CANCEL, LOGIN, LOGOUT e ACCESS_DENIED).
+- Consulta de agendamentos e relatórios por período.
 - Gerenciamento de usuários.
 - Cadastro e gerenciamento de tipos de caminhão.
 - Documentação da API pelo Swagger.
-- Interface web com login e navegação conforme o perfil de acesso.
-
-A interface ainda precisa receber as telas completas de agendamentos, relatórios, usuários e auditoria.
+- Interface web com login, painel de ocupação, navegação conforme o perfil de acesso e logout auditado.
 
 ## Regras de negócio
+
+### ID Pedido
+
+Cada agendamento possui um `orderId` obrigatório, inteiro maior que zero e único em todo o sistema. O campo é exibido nas listagens, relatórios, e-mails e registros de auditoria.
+
+### Cancelamento
+
+O cancelamento é lógico: o registro permanece no banco com `status = CANCELED`, `canceledAt` e `canceledBy`.
+
+- O agendamento cancelado não pode ser editado nem cancelado novamente.
+- Agendamentos cancelados não entram no cálculo de capacidade.
+- O histórico continua disponível em listagens, relatórios e auditoria.
+- Nenhum registro é excluído fisicamente.
+
+### Observação
+
+O campo `notes` é opcional e aceita até 500 caracteres. Nome e e-mail do fornecedor aceitam até 80 caracteres.
 
 ### Horários de recebimento
 
@@ -74,21 +90,27 @@ Os limites utilizados pelo sistema são:
 
 Esses valores servem para acompanhamento da capacidade, não para impedir agendamentos.
 
+O limite diário usa a quantidade declarada no cadastro. O limite da faixa horária usa a quantidade considerada, que recebe o multiplicador do tipo de paletização.
+
 Quando algum limite é ultrapassado, o sistema retorna um aviso no campo `warnings`, mas mantém o agendamento normalmente.
+
+A ocupação percentual é arredondada em uma casa decimal e pode ser consultada por dia e por faixa no endpoint `GET /api/appointments/capacity?date=YYYY-MM-DD`.
 
 ### Cálculo de pallets
 
 O cálculo depende do tipo de paletização informado:
 
-| Tipo | Quantidade informada | Quantidade considerada |
-|---|---:|---:|
-| Paletizado | 10 | 10 |
-| Não paletizado | 10 | 20 |
+| Tipo | Quantidade declarada | Pallets no dia | Pallets na faixa |
+|---|---:|---:|---:|
+| Paletizado | 10 | 10 | 10 |
+| Não paletizado | 10 | 10 | 20 |
 
-O sistema mantém dois campos:
+O sistema mantém os campos:
 
 - `palletQuantity`: quantidade informada no cadastro.
-- `effectivePallets`: quantidade utilizada no cálculo da capacidade.
+- `dailyPallets`: quantidade original usada no limite diário.
+- `effectivePallets`: quantidade considerada na faixa, com multiplicador.
+- `slotPallets`: total considerado na faixa horária.
 
 ### Permissões
 
@@ -110,9 +132,16 @@ Existem dois perfis de acesso:
 
 ### Envio de e-mails
 
-Depois que um agendamento é salvo, o sistema envia uma confirmação ao fornecedor.
+Depois que um agendamento é salvo, o sistema tenta enviar uma confirmação ao fornecedor.
 
-Caso ocorra algum problema no envio, a falha é registrada no log. Isso não cancela nem desfaz o agendamento.
+A persistência acontece antes do envio. Se o envio falhar:
+
+- o agendamento permanece salvo;
+- a resposta inclui `emailSent: false`;
+- o campo `warnings` recebe um aviso explícito de que o fornecedor não foi notificado;
+- a falha é registrada no log.
+
+O endpoint de atualização não reenvia e-mail e retorna `emailSent` nulo/omitido.
 
 ## Organização do projeto
 
@@ -366,7 +395,10 @@ A documentação interativa está disponível no Swagger.
 | Método | Endpoint | Acesso |
 |---|---|---|
 | POST | `/api/auth/login` | Público |
+| POST | `/api/auth/logout` | Autenticado |
 | GET | `/api/auth/me` | Autenticado |
+
+O logout registra a ação `LOGOUT` na auditoria. O token JWT é stateless e deixa de ser aceito quando o cliente o descarta.
 
 ### Agendamentos
 
@@ -374,11 +406,37 @@ A documentação interativa está disponível no Swagger.
 |---|---|---|
 | GET | `/api/appointments` | ADMIN / USER |
 | GET | `/api/appointments/{id}` | ADMIN / USER |
+| GET | `/api/appointments/capacity?date=YYYY-MM-DD` | ADMIN / USER |
 | POST | `/api/appointments` | ADMIN |
 | PUT | `/api/appointments/{id}` | ADMIN |
 | DELETE | `/api/appointments/{id}` | ADMIN |
 
 A listagem permite filtros por período e paginação.
+
+O `POST` exige `orderId` único e retorna `appointment`, `warnings`, `capacity` e `emailSent`.
+
+O `PUT` não permite alterar agendamento cancelado.
+
+O `DELETE` executa cancelamento lógico e retorna `204 No Content`.
+
+O endpoint de capacidade retorna:
+
+```json
+{
+  "date": "2026-03-10",
+  "dailyPallets": 30,
+  "dailyLimit": 480,
+  "dailyOccupancyPercentage": 6.3,
+  "slots": [
+    {
+      "timeSlot": { "id": 1, "startTime": "08:00", "endTime": "10:00", "label": "08:00 - 10:00" },
+      "pallets": 60,
+      "limit": 120,
+      "occupancyPercentage": 50.0
+    }
+  ]
+}
+```
 
 ### Relatórios
 
@@ -386,7 +444,11 @@ A listagem permite filtros por período e paginação.
 |---|---|---|
 | GET | `/api/reports/appointments?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | ADMIN / USER |
 
-O relatório retorna os dados dos agendamentos e os totais calculados para o período.
+O relatório retorna os dados dos agendamentos (inclusive cancelados) e os totais do período:
+
+- `totalAppointments`: quantidade de registros;
+- `totalPallets`: soma da quantidade original no dia;
+- `totalEffectivePallets`: soma da quantidade considerada na faixa.
 
 ### Dados de referência
 
@@ -429,6 +491,9 @@ Arquivos principais:
 
 - `V1__schema.sql`: criação das tabelas, índices e constraints.
 - `V2__reference_data.sql`: inserção dos dados iniciais de referência.
+- `V3__appointment_conformity.sql`: ID Pedido, observação, status/cancelamento, índices, limites e tipo de caminhão `Van`.
+
+A `V3` faz backfill de registros legados sem ID Pedido em uma faixa reservada (`9.000.000.000.000.000.000+`), cria o índice único e aplica os limites de 80 caracteres com `CHECK ... NOT VALID` para não invalidar dados antigos. Nenhum registro é removido.
 
 O Hibernate utiliza `ddl-auto: validate`, portanto a estrutura do banco é controlada pelas migrações do Flyway.
 
@@ -444,7 +509,8 @@ O sistema utiliza:
 - Configuração de CORS.
 - Validação de dados recebidos pela API.
 - Tratamento centralizado de exceções.
-- Registro de operações para auditoria.
+- Registro de operações para auditoria: `CREATE`, `UPDATE`, `CANCEL`, `LOGIN`, `LOGOUT` e `ACCESS_DENIED`.
+- Auditoria sem armazenamento de senhas, tokens JWT ou dados sensíveis.
 
 O token possui validade configurável pela variável `JWT_EXPIRATION`.
 
@@ -493,14 +559,14 @@ npm run build
 
 ## Melhorias pendentes
 
-As próximas etapas do desenvolvimento são:
+Itens previstos para as próximas etapas:
 
-- Finalizar as telas de agendamento.
-- Implementar os filtros e formulários da interface.
-- Desenvolver a área de relatórios.
-- Criar as telas de gerenciamento de usuários.
-- Implementar a consulta de auditoria pela interface.
+- Reforçar a segurança: remover segredos padrão do repositório e revisar configurações de produção.
+- Melhorar o tratamento de concorrência na unicidade do ID Pedido.
 - Adicionar testes end-to-end dos principais fluxos.
+- Validar o ambiente completo com Docker Compose, PostgreSQL 16, MailHog e Swagger.
+- Definir se faixas horárias e tipos de paletização terão telas de cadastro próprias.
+- Concluir a documentação de entrega, o vídeo e o PDF final.
 
 ---
 

@@ -31,7 +31,7 @@ class GetAppointmentReportUseCaseTest {
     }
 
     @Test
-    void aggregatesAppointmentsAndEffectivePallets() {
+    void aggregatesAppointmentsAndBothPalletTotals() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
         when(appointmentRepository.findByPeriod(start, end)).thenReturn(List.of(
@@ -42,10 +42,28 @@ class GetAppointmentReportUseCaseTest {
         AppointmentReportResult result = useCase.execute(start, end);
 
         assertThat(result.totalAppointments()).isEqualTo(2);
+        assertThat(result.totalPallets()).isEqualTo(20);
         assertThat(result.totalEffectivePallets()).isEqualTo(30);
         assertThat(result.appointments()).hasSize(2);
+        assertThat(result.appointments().get(1).status().name()).isEqualTo("ACTIVE");
         assertThat(result.startDate()).isEqualTo(start);
         assertThat(result.endDate()).isEqualTo(end);
+    }
+
+    @Test
+    void keepsCanceledAppointmentsInTheReport() {
+        LocalDate start = LocalDate.of(2026, 2, 1);
+        LocalDate end = LocalDate.of(2026, 2, 28);
+        when(appointmentRepository.findByPeriod(start, end)).thenReturn(List.of(
+                TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
+                TestFixtures.canceledAppointment()
+        ));
+
+        AppointmentReportResult result = useCase.execute(start, end);
+
+        assertThat(result.totalAppointments()).isEqualTo(2);
+        assertThat(result.appointments())
+                .anyMatch(item -> item.status().name().equals("CANCELED"));
     }
 
     @Test
@@ -57,6 +75,7 @@ class GetAppointmentReportUseCaseTest {
         AppointmentReportResult result = useCase.execute(start, end);
 
         assertThat(result.totalAppointments()).isZero();
+        assertThat(result.totalPallets()).isZero();
         assertThat(result.totalEffectivePallets()).isZero();
         assertThat(result.appointments()).isEmpty();
     }

@@ -43,11 +43,19 @@ export const useAuthStore = defineStore('auth', {
       return data
     },
 
-    logout() {
-      this.token = ''
-      this.user = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+    async logout() {
+      try {
+        if (this.token) {
+          await api.post('/auth/logout')
+        }
+      } catch (error) {
+        console.error('Não foi possível registrar o logout na auditoria:', error)
+      } finally {
+        this.token = ''
+        this.user = null
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(USER_KEY)
+      }
     }
   }
 })

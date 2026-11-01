@@ -26,14 +26,18 @@ public class GetAppointmentReportUseCase {
         }
 
         List<Appointment> appointments = appointmentRepository.findByPeriod(startDate, endDate);
+        long totalPallets = appointments.stream()
+                .mapToLong(Appointment::dailyPallets)
+                .sum();
         long totalEffectivePallets = appointments.stream()
-                .mapToLong(Appointment::effectivePallets)
+                .mapToLong(Appointment::slotPallets)
                 .sum();
 
         return new AppointmentReportResult(
                 startDate,
                 endDate,
                 appointments.size(),
+                totalPallets,
                 totalEffectivePallets,
                 appointments.stream().map(AppointmentResult::from).toList()
         );

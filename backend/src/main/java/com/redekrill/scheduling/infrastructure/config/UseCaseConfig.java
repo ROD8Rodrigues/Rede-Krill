@@ -5,15 +5,17 @@ import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.application.port.TokenIssuer;
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.usecase.appointment.CancelAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.CreateAppointmentUseCase;
-import com.redekrill.scheduling.application.usecase.appointment.DeleteAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.GetAppointmentReportUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.GetAppointmentUseCase;
+import com.redekrill.scheduling.application.usecase.appointment.GetCapacityOverviewUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.ListAppointmentsUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.UpdateAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.audit.ListAuditLogsUseCase;
 import com.redekrill.scheduling.application.usecase.auth.GetCurrentUserUseCase;
 import com.redekrill.scheduling.application.usecase.auth.LoginUseCase;
+import com.redekrill.scheduling.application.usecase.auth.LogoutUseCase;
 import com.redekrill.scheduling.application.usecase.reference.ListPalletizationTypesUseCase;
 import com.redekrill.scheduling.application.usecase.reference.ListTimeSlotsUseCase;
 import com.redekrill.scheduling.application.usecase.trucktype.CreateTruckTypeUseCase;
@@ -50,8 +52,13 @@ public class UseCaseConfig {
 
     @Bean
     public LoginUseCase loginUseCase(UserRepository userRepository, PasswordHasher passwordHasher,
-                                     TokenIssuer tokenIssuer) {
-        return new LoginUseCase(userRepository, passwordHasher, tokenIssuer);
+                                     TokenIssuer tokenIssuer, AuditService auditService) {
+        return new LoginUseCase(userRepository, passwordHasher, tokenIssuer, auditService);
+    }
+
+    @Bean
+    public LogoutUseCase logoutUseCase(AuditService auditService) {
+        return new LogoutUseCase(auditService);
     }
 
     @Bean
@@ -176,11 +183,14 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public DeleteAppointmentUseCase deleteAppointmentUseCase(
+    public CancelAppointmentUseCase cancelAppointmentUseCase(
             AppointmentRepository appointmentRepository,
+            UserRepository userRepository,
             AuditService auditService,
-            TransactionRunner transactionRunner) {
-        return new DeleteAppointmentUseCase(appointmentRepository, auditService, transactionRunner);
+            TransactionRunner transactionRunner,
+            Clock clock) {
+        return new CancelAppointmentUseCase(
+                appointmentRepository, userRepository, auditService, transactionRunner, clock);
     }
 
     @Bean
@@ -191,6 +201,13 @@ public class UseCaseConfig {
     @Bean
     public ListAppointmentsUseCase listAppointmentsUseCase(AppointmentRepository appointmentRepository) {
         return new ListAppointmentsUseCase(appointmentRepository);
+    }
+
+    @Bean
+    public GetCapacityOverviewUseCase getCapacityOverviewUseCase(
+            AppointmentRepository appointmentRepository,
+            TimeSlotRepository timeSlotRepository) {
+        return new GetCapacityOverviewUseCase(appointmentRepository, timeSlotRepository);
     }
 
     @Bean

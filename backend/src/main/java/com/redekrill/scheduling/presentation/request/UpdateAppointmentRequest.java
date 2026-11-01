@@ -5,18 +5,23 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
 public record UpdateAppointmentRequest(
+        @NotNull(message = "ID Pedido é obrigatório.")
+        @Positive(message = "ID Pedido deve ser maior que zero.")
+        Long orderId,
+
         @NotBlank(message = "Nome do fornecedor é obrigatório.")
-        @Size(max = 160, message = "Nome do fornecedor deve ter no máximo 160 caracteres.")
+        @Size(max = 80, message = "Nome do fornecedor deve ter no máximo 80 caracteres.")
         String supplierName,
 
         @NotBlank(message = "E-mail do fornecedor é obrigatório.")
         @Email(message = "E-mail do fornecedor inválido.")
-        @Size(max = 160, message = "E-mail do fornecedor deve ter no máximo 160 caracteres.")
+        @Size(max = 80, message = "E-mail do fornecedor deve ter no máximo 80 caracteres.")
         String supplierEmail,
 
         @NotBlank(message = "Placa do caminhão é obrigatória.")
@@ -37,6 +42,9 @@ public record UpdateAppointmentRequest(
 
         @Min(value = 1, message = "Quantidade de pallets deve ser maior que zero.")
         @Max(value = 1_000_000, message = "Quantidade de pallets excede o limite permitido.")
-        int palletQuantity
+        int palletQuantity,
+
+        @Size(max = 500, message = "Observação deve ter no máximo 500 caracteres.")
+        String notes
 ) {
 }

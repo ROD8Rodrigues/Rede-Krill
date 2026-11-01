@@ -5,7 +5,8 @@ import java.util.List;
 public record AppointmentCommandResult(
         AppointmentResult appointment,
         List<String> warnings,
-        CapacityResult capacity
+        CapacityResult capacity,
+        Boolean emailSent
 ) {
 
     public AppointmentCommandResult {

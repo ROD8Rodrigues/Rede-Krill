@@ -5,8 +5,10 @@ import com.redekrill.scheduling.application.dto.auth.LoginResult;
 import com.redekrill.scheduling.application.port.IssuedToken;
 import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.application.port.TokenIssuer;
+import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.DomainException;
+import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 import com.redekrill.scheduling.support.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,16 +34,18 @@ class LoginUseCaseTest {
     private PasswordHasher passwordHasher;
     @Mock
     private TokenIssuer tokenIssuer;
+    @Mock
+    private AuditService auditService;
 
     private LoginUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new LoginUseCase(userRepository, passwordHasher, tokenIssuer);
+        useCase = new LoginUseCase(userRepository, passwordHasher, tokenIssuer, auditService);
     }
 
     @Test
-    void authenticatesAndIssuesToken() {
+    void authenticatesIssuesTokenAndRecordsAudit() {
         when(userRepository.findByEmail("admin@redekrill.com"))
                 .thenReturn(Optional.of(TestFixtures.user()));
         when(passwordHasher.matches("Admin@12345", "hashed-password")).thenReturn(true);
@@ -54,6 +59,8 @@ class LoginUseCaseTest {
         assertThat(result.expiresIn()).isEqualTo(3_600);
         assertThat(result.user().email()).isEqualTo("admin@redekrill.com");
         assertThat(result.user().role().name()).isEqualTo("ADMIN");
+        verify(auditService).record(
+                eq("admin@redekrill.com"), eq(AuditAction.LOGIN), eq("User"), eq(1L), eq("Login realizado."));
     }
 
     @Test

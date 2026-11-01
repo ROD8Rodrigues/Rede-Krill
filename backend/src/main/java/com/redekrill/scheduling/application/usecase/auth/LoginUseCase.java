@@ -6,8 +6,10 @@ import com.redekrill.scheduling.application.dto.user.UserResult;
 import com.redekrill.scheduling.application.port.IssuedToken;
 import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.application.port.TokenIssuer;
+import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.DomainException;
+import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.User;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 
@@ -18,12 +20,14 @@ public class LoginUseCase {
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final TokenIssuer tokenIssuer;
+    private final AuditService auditService;
 
     public LoginUseCase(UserRepository userRepository, PasswordHasher passwordHasher,
-                        TokenIssuer tokenIssuer) {
+                        TokenIssuer tokenIssuer, AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.tokenIssuer = tokenIssuer;
+        this.auditService = auditService;
     }
 
     public LoginResult execute(LoginCommand command) {
@@ -42,6 +46,7 @@ public class LoginUseCase {
         }
 
         IssuedToken token = tokenIssuer.issue(user);
+        auditService.record(user.email(), AuditAction.LOGIN, "User", user.id(), "Login realizado.");
         return new LoginResult(token.value(), "Bearer", token.expiresInSeconds(), UserResult.from(user));
     }
 }

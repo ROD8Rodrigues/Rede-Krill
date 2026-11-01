@@ -4,6 +4,7 @@ import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandRe
 import com.redekrill.scheduling.application.dto.appointment.UpdateAppointmentCommand;
 import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
+import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.Appointment;
@@ -65,26 +66,30 @@ class UpdateAppointmentUseCaseTest {
     }
 
     @Test
-    void updatesAppointmentRecalculatingEffectivePalletsAndWarnings() {
+    void updatesAppointmentRecalculatingPalletsAndWarnings() {
         Appointment existing = TestFixtures.appointment();
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(timeSlotRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.otherTimeSlot()));
         when(truckTypeRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.truckType()));
         when(palletizationTypeRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.nonPalletized()));
-        when(appointmentRepository.sumEffectivePalletsByDateExcluding(TestFixtures.DATE, 1L))
-                .thenReturn(470L);
-        when(appointmentRepository.sumEffectivePalletsByDateAndTimeSlotExcluding(
+        when(appointmentRepository.sumDailyPalletsByDateExcluding(TestFixtures.DATE, 1L))
+                .thenReturn(475L);
+        when(appointmentRepository.sumSlotPalletsByDateAndTimeSlotExcluding(
                 TestFixtures.DATE, 2L, 1L)).thenReturn(20L);
         when(appointmentRepository.save(any(Appointment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Appointment.class));
 
         AppointmentCommandResult result = useCase.execute(updateCommand(6));
 
+        assertThat(result.appointment().orderId()).isEqualTo(2000L);
+        assertThat(result.appointment().dailyPallets()).isEqualTo(6);
         assertThat(result.appointment().effectivePallets()).isEqualTo(12);
+        assertThat(result.appointment().slotPallets()).isEqualTo(12);
         assertThat(result.appointment().supplierName()).isEqualTo("Fornecedor Atualizado");
         assertThat(result.appointment().timeSlot().id()).isEqualTo(2L);
         assertThat(result.warnings()).hasSize(1);
-        assertThat(result.capacity().dailyPallets()).isEqualTo(482);
+        assertThat(result.capacity().dailyPallets()).isEqualTo(481);
+        assertThat(result.emailSent()).isNull();
         verify(auditService).record(
                 eq("admin@redekrill.com"),
                 eq(AuditAction.UPDATE),
@@ -92,6 +97,35 @@ class UpdateAppointmentUseCaseTest {
                 eq(1L),
                 contains("pallets=6")
         );
+    }
+
+    @Test
+    void rejectsDuplicatedOrderId() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.appointment()));
+        when(timeSlotRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.otherTimeSlot()));
+        when(truckTypeRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.truckType()));
+        when(palletizationTypeRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.nonPalletized()));
+        when(appointmentRepository.existsByOrderIdAndIdNot(2000L, 1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> useCase.execute(updateCommand(6)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Já existe um agendamento com o ID Pedido 2000.");
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsUpdateOfCanceledAppointment() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.canceledAppointment()));
+        when(timeSlotRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.otherTimeSlot()));
+        when(truckTypeRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.truckType()));
+        when(palletizationTypeRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.nonPalletized()));
+
+        assertThatThrownBy(() -> useCase.execute(updateCommand(6)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Agendamento cancelado não pode ser alterado.");
+
+        verify(appointmentRepository, never()).save(any());
     }
 
     @Test
@@ -104,8 +138,8 @@ class UpdateAppointmentUseCaseTest {
     @Test
     void rejectsMissingId() {
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                null, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 1L, 10, "admin@redekrill.com");
+                null, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(DomainException.class)
@@ -113,10 +147,21 @@ class UpdateAppointmentUseCaseTest {
     }
 
     @Test
+    void rejectsMissingOrderId() {
+        UpdateAppointmentCommand command = new UpdateAppointmentCommand(
+                1L, null, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, 10, null, "admin@redekrill.com");
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("ID Pedido é obrigatório e deve ser maior que zero.");
+    }
+
+    @Test
     void rejectsMissingDate() {
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", null,
-                1L, 1L, 1L, 10, "admin@redekrill.com");
+                1L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                null, 1L, 1L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(DomainException.class)
@@ -126,8 +171,8 @@ class UpdateAppointmentUseCaseTest {
     @Test
     void rejectsMissingReferences() {
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, null, 1L, 10, "admin@redekrill.com");
+                1L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, null, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(DomainException.class)
@@ -137,8 +182,8 @@ class UpdateAppointmentUseCaseTest {
     @Test
     void rejectsMissingActor() {
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 1L, 10, "");
+                1L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, 10, null, "");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(AuthenticationFailedException.class)
@@ -150,8 +195,8 @@ class UpdateAppointmentUseCaseTest {
         when(appointmentRepository.findById(99L)).thenReturn(Optional.empty());
 
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                99L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 1L, 10, "admin@redekrill.com");
+                99L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -176,8 +221,8 @@ class UpdateAppointmentUseCaseTest {
         when(truckTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 99L, 1L, 10, "admin@redekrill.com");
+                1L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 99L, 1L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -192,8 +237,8 @@ class UpdateAppointmentUseCaseTest {
         when(palletizationTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         UpdateAppointmentCommand command = new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                1L, 1L, 99L, 10, "admin@redekrill.com");
+                1L, TestFixtures.ORDER_ID, "Fornecedor", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 1L, 1L, 99L, 10, null, "admin@redekrill.com");
 
         assertThatThrownBy(() -> useCase.execute(command))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -202,13 +247,13 @@ class UpdateAppointmentUseCaseTest {
 
     private UpdateAppointmentCommand updateCommand(int quantity) {
         return new UpdateAppointmentCommand(
-                1L, "Fornecedor Atualizado", "fornecedor@example.com", "ABC1D23",
-                TestFixtures.DATE, 2L, 1L, 2L, quantity, "admin@redekrill.com");
+                1L, 2000L, "Fornecedor Atualizado", "fornecedor@example.com", "ABC1D23",
+                TestFixtures.DATE, 2L, 1L, 2L, quantity, "Atualizado", "admin@redekrill.com");
     }
 
     private UpdateAppointmentCommand updateCommandWithTimeSlot(Long timeSlotId) {
         return new UpdateAppointmentCommand(
-                1L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
-                timeSlotId, 1L, 1L, 10, "admin@redekrill.com");
+                1L, 2000L, "Fornecedor", "fornecedor@example.com", "ABC1D23", TestFixtures.DATE,
+                timeSlotId, 1L, 1L, 10, null, "admin@redekrill.com");
     }
 }

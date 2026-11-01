@@ -15,6 +15,11 @@ export const appointmentService = {
     return data
   },
 
+  async getCapacity(date) {
+    const { data } = await api.get('/appointments/capacity', { params: { date } })
+    return data
+  },
+
   async createAppointment(payload) {
     const { data } = await api.post('/appointments', payload)
     return data
@@ -25,7 +30,7 @@ export const appointmentService = {
     return data
   },
 
-  async deleteAppointment(id) {
+  async cancelAppointment(id) {
     await api.delete(`/appointments/${id}`)
   }
 }

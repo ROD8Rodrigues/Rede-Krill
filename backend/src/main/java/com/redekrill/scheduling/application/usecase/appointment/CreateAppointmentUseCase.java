@@ -8,6 +8,7 @@ import com.redekrill.scheduling.application.port.EmailNotifier;
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
+import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.Appointment;
@@ -28,6 +29,8 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CreateAppointmentUseCase {
 
@@ -83,7 +86,13 @@ public class CreateAppointmentUseCase {
                     .orElseThrow(() -> new AuthenticationFailedException(
                             "Usuário autenticado não encontrado ou inativo."));
 
+            if (appointmentRepository.existsByOrderId(command.orderId())) {
+                throw new ConflictException(
+                        "Já existe um agendamento com o ID Pedido %d.".formatted(command.orderId()));
+            }
+
             Appointment appointment = Appointment.create(
+                    command.orderId(),
                     command.supplierName(),
                     command.supplierEmail(),
                     command.truckPlate(),
@@ -92,15 +101,17 @@ public class CreateAppointmentUseCase {
                     truckType,
                     palletizationType,
                     command.palletQuantity(),
+                    command.notes(),
                     actor,
                     Instant.now(clock)
             );
 
-            long dailyPallets = appointmentRepository.sumEffectivePalletsByDate(appointment.date());
-            long slotPallets = appointmentRepository.sumEffectivePalletsByDateAndTimeSlot(
+            long dailyPallets = appointmentRepository.sumDailyPalletsByDate(appointment.date());
+            long slotPallets = appointmentRepository.sumSlotPalletsByDateAndTimeSlot(
                     appointment.date(), timeSlot.id());
             CapacityAssessment assessment = capacityPolicy.assess(
-                    dailyPallets, slotPallets, appointment.effectivePallets());
+                    dailyPallets, slotPallets,
+                    appointment.dailyPallets(), appointment.slotPallets());
 
             Appointment saved = appointmentRepository.save(appointment);
             auditService.record(
@@ -108,38 +119,49 @@ public class CreateAppointmentUseCase {
                     AuditAction.CREATE,
                     "Appointment",
                     saved.id(),
-                    "Agendamento criado: fornecedor=%s, data=%s, faixa=%s, pallets=%d, efetivos=%d"
-                            .formatted(saved.supplierName(), saved.date(), saved.timeSlot().label(),
-                                    saved.palletQuantity(), saved.effectivePallets())
+                    "Agendamento criado: ID Pedido=%d, fornecedor=%s, data=%s, faixa=%s, pallets=%d, faixa=%d"
+                            .formatted(saved.orderId(), saved.supplierName(), saved.date(),
+                                    saved.timeSlot().label(), saved.dailyPallets(), saved.slotPallets())
             );
 
             return new PreparedAppointment(saved, assessment);
         });
 
-        sendConfirmationEmail(prepared);
+        boolean emailSent = sendConfirmationEmail(prepared);
+        List<String> warnings = new ArrayList<>(prepared.assessment().warnings());
+        if (!emailSent) {
+            warnings.add("O agendamento foi salvo, mas não foi possível enviar o e-mail de "
+                    + "confirmação. O fornecedor não foi notificado.");
+        }
 
-        CapacityAssessment assessment = prepared.assessment();
         return new AppointmentCommandResult(
                 AppointmentResult.from(prepared.appointment()),
-                assessment.warnings(),
-                CapacityResult.from(assessment)
+                warnings,
+                CapacityResult.from(prepared.assessment()),
+                emailSent
         );
     }
 
-    private void sendConfirmationEmail(PreparedAppointment prepared) {
+    private boolean sendConfirmationEmail(PreparedAppointment prepared) {
         try {
-            emailNotifier.sendAppointmentConfirmation(prepared.appointment(), prepared.assessment().warnings());
+            emailNotifier.sendAppointmentConfirmation(
+                    prepared.appointment(), prepared.assessment().warnings());
+            return true;
         } catch (RuntimeException exception) {
             log.warn("Falha ao enviar e-mail de confirmação do agendamento {} para {}.",
                     prepared.appointment().id(),
                     prepared.appointment().supplierEmail(),
                     exception);
+            return false;
         }
     }
 
     private void validate(CreateAppointmentCommand command) {
         if (command == null) {
             throw new DomainException("Dados do agendamento são obrigatórios.");
+        }
+        if (command.orderId() == null || command.orderId() <= 0) {
+            throw new DomainException("ID Pedido é obrigatório e deve ser maior que zero.");
         }
         if (command.date() == null) {
             throw new DomainException("Data do agendamento é obrigatória.");

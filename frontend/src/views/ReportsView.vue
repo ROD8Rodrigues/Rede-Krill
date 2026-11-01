@@ -69,50 +69,69 @@
           </div>
         </div>
         <p class="mt-3 text-2xl font-bold text-slate-900">{{ report?.totalAppointments || 0 }}</p>
-        <p class="mt-1 text-xs text-slate-400">caminhões agendados</p>
+        <p class="mt-1 text-xs text-slate-400">registros no período (inclui cancelados)</p>
       </div>
 
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets Efetivos</p>
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-            <i class="pi pi-box text-lg" />
-          </div>
-        </div>
-        <p class="mt-3 text-2xl font-bold text-emerald-700">{{ report?.totalEffectivePallets || 0 }}</p>
-        <p class="mt-1 text-xs text-slate-400">considerados na capacidade</p>
-      </div>
-
-      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets Declarados</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets no Dia</p>
           <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
             <i class="pi pi-database text-lg" />
           </div>
         </div>
-        <p class="mt-3 text-2xl font-bold text-slate-900">{{ totalDeclaredPallets }}</p>
+        <p class="mt-3 text-2xl font-bold text-slate-900">{{ report?.totalPallets || 0 }}</p>
         <p class="mt-1 text-xs text-slate-400">quantidade física informada</p>
       </div>
 
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Não Paletizados (2x)</p>
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-            <i class="pi pi-exclamation-circle text-lg" />
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets na Faixa</p>
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <i class="pi pi-box text-lg" />
           </div>
         </div>
-        <p class="mt-3 text-2xl font-bold text-amber-700">{{ nonPalletizedCount }}</p>
-        <p class="mt-1 text-xs text-slate-400">agendamentos com impacto 2x</p>
+        <p class="mt-3 text-2xl font-bold text-emerald-700">{{ report?.totalEffectivePallets || 0 }}</p>
+        <p class="mt-1 text-xs text-slate-400">considerados na capacidade da faixa</p>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Cancelados</p>
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+            <i class="pi pi-ban text-lg" />
+          </div>
+        </div>
+        <p class="mt-3 text-2xl font-bold text-red-700">{{ canceledCount }}</p>
+        <p class="mt-1 text-xs text-slate-400">mantidos no histórico, fora da capacidade</p>
       </div>
     </div>
 
     <!-- Tabela Detalhada -->
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-6 py-4">
-        <h3 class="text-base font-semibold text-slate-900">Detalhamento dos Agendamentos no Período</h3>
+      <div class="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="text-base font-semibold text-slate-900">Detalhamento dos Agendamentos no Período</h3>
+          <p class="text-xs text-slate-500">
+            Exibindo {{ filteredAppointments.length }} de {{ report?.appointments?.length || 0 }} registros.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-600" for="status-filter">
+            Status
+          </label>
+          <select
+            id="status-filter"
+            v-model="statusFilter"
+            class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
+          >
+            <option value="ALL">Todos</option>
+            <option value="ACTIVE">Ativos</option>
+            <option value="CANCELED">Cancelados</option>
+          </select>
+        </div>
       </div>
       <DataTable
-        :value="report?.appointments || []"
+        :value="filteredAppointments"
         :loading="loading"
         paginator
         :rows="10"
@@ -126,6 +145,14 @@
             <p class="text-xs text-slate-400 mt-1">Selecione outro intervalo de datas e clique em "Gerar Relatório".</p>
           </div>
         </template>
+
+        <Column field="orderId" header="ID Pedido" sortable style="min-width: 120px">
+          <template #body="{ data }">
+            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800">
+              {{ data.orderId }}
+            </span>
+          </template>
+        </Column>
 
         <Column field="date" header="Data" sortable style="min-width: 110px">
           <template #body="{ data }">
@@ -142,7 +169,7 @@
           </template>
         </Column>
 
-        <Column header="Fornecedor" style="min-width: 200px">
+        <Column header="Fornecedor" style="min-width: 220px">
           <template #body="{ data }">
             <div>
               <p class="font-semibold text-slate-900">{{ data.supplierName }}</p>
@@ -180,15 +207,30 @@
           </template>
         </Column>
 
-        <Column header="Pallets Informados" style="min-width: 140px">
+        <Column header="Pallets Dia" style="min-width: 110px">
           <template #body="{ data }">
-            <span class="font-medium text-slate-800">{{ data.palletQuantity }}</span>
+            <span class="font-medium text-slate-800">{{ data.dailyPallets }}</span>
           </template>
         </Column>
 
-        <Column header="Pallets Efetivos" style="min-width: 140px">
+        <Column header="Pallets Faixa" style="min-width: 120px">
           <template #body="{ data }">
-            <span class="font-bold text-krill-700">{{ data.effectivePallets }}</span>
+            <span class="font-bold text-krill-700">{{ data.slotPallets }}</span>
+          </template>
+        </Column>
+
+        <Column header="Status" style="min-width: 160px">
+          <template #body="{ data }">
+            <Tag
+              v-if="data.status === 'CANCELED'"
+              severity="danger"
+              value="Cancelado"
+              icon="pi pi-ban"
+            />
+            <Tag v-else severity="success" value="Ativo" icon="pi pi-check" />
+            <p v-if="data.status === 'CANCELED'" class="mt-1 text-[11px] text-slate-400">
+              {{ cancelInfo(data) }}
+            </p>
           </template>
         </Column>
       </DataTable>
@@ -209,23 +251,22 @@ const toast = useToast()
 
 const loading = ref(false)
 const report = ref(null)
+const statusFilter = ref('ALL')
 
 const filters = reactive({
   startDate: '',
   endDate: ''
 })
 
-const totalDeclaredPallets = computed(() => {
-  if (!report.value?.appointments) return 0
-  return report.value.appointments.reduce((sum, item) => sum + (item.palletQuantity || 0), 0)
+const filteredAppointments = computed(() => {
+  const appointments = report.value?.appointments || []
+  if (statusFilter.value === 'ALL') return appointments
+  return appointments.filter((item) => item.status === statusFilter.value)
 })
 
-const nonPalletizedCount = computed(() => {
-  if (!report.value?.appointments) return 0
-  return report.value.appointments.filter(
-    (item) => item.palletizationType?.code === 'NAO_PALETIZADO'
-  ).length
-})
+const canceledCount = computed(
+  () => (report.value?.appointments || []).filter((item) => item.status === 'CANCELED').length
+)
 
 function formatDate(isoDate) {
   if (!isoDate) return ''
@@ -233,11 +274,27 @@ function formatDate(isoDate) {
   return `${day}/${month}/${year}`
 }
 
+function formatDateTime(isoString) {
+  if (!isoString) return ''
+  return new Date(isoString).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function cancelInfo(appointment) {
+  const actor = appointment.canceledBy?.name || appointment.canceledBy?.email || 'usuário não identificado'
+  const when = formatDateTime(appointment.canceledAt)
+  return when ? `${actor} em ${when}` : actor
+}
+
 function setThisMonth() {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth()
-  const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
 
   const pad = (n) => String(n).padStart(2, '0')

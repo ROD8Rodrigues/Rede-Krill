@@ -3,7 +3,9 @@ package com.redekrill.scheduling.presentation.mapper;
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
 import com.redekrill.scheduling.application.dto.appointment.AppointmentReportResult;
 import com.redekrill.scheduling.application.dto.appointment.AppointmentResult;
+import com.redekrill.scheduling.application.dto.appointment.CapacityOverviewResult;
 import com.redekrill.scheduling.application.dto.appointment.CapacityResult;
+import com.redekrill.scheduling.application.dto.appointment.SlotCapacityResult;
 import com.redekrill.scheduling.application.dto.audit.AuditLogResult;
 import com.redekrill.scheduling.application.dto.auth.LoginResult;
 import com.redekrill.scheduling.application.dto.reference.PalletizationTypeResult;
@@ -14,9 +16,11 @@ import com.redekrill.scheduling.presentation.response.AppointmentCommandResponse
 import com.redekrill.scheduling.presentation.response.AppointmentReportResponse;
 import com.redekrill.scheduling.presentation.response.AppointmentResponse;
 import com.redekrill.scheduling.presentation.response.AuditLogResponse;
+import com.redekrill.scheduling.presentation.response.CapacityOverviewResponse;
 import com.redekrill.scheduling.presentation.response.CapacityResponse;
 import com.redekrill.scheduling.presentation.response.LoginResponse;
 import com.redekrill.scheduling.presentation.response.PalletizationTypeResponse;
+import com.redekrill.scheduling.presentation.response.SlotCapacityResponse;
 import com.redekrill.scheduling.presentation.response.TimeSlotResponse;
 import com.redekrill.scheduling.presentation.response.TruckTypeResponse;
 import com.redekrill.scheduling.presentation.response.UserResponse;
@@ -82,6 +86,7 @@ public final class WebMapper {
     public static AppointmentResponse toResponse(AppointmentResult result) {
         return new AppointmentResponse(
                 result.id(),
+                result.orderId(),
                 result.supplierName(),
                 result.supplierEmail(),
                 result.truckPlate(),
@@ -92,13 +97,27 @@ public final class WebMapper {
                 toResponse(result.palletizationType()),
                 result.palletQuantity(),
                 result.effectivePallets(),
-                new AppointmentResponse.UserSummaryResponse(
-                        result.createdBy().id(),
-                        result.createdBy().name(),
-                        result.createdBy().email()
-                ),
+                result.dailyPallets(),
+                result.slotPallets(),
+                result.notes(),
+                result.status(),
+                toResponse(result.canceledBy()),
+                result.canceledAt(),
+                toResponse(result.createdBy()),
                 result.createdAt(),
                 result.updatedAt()
+        );
+    }
+
+    private static AppointmentResponse.UserSummaryResponse toResponse(
+            AppointmentResult.UserSummaryResult result) {
+        if (result == null) {
+            return null;
+        }
+        return new AppointmentResponse.UserSummaryResponse(
+                result.id(),
+                result.name(),
+                result.email()
         );
     }
 
@@ -107,7 +126,28 @@ public final class WebMapper {
                 result.dailyPallets(),
                 result.slotPallets(),
                 result.dailyLimit(),
-                result.slotLimit()
+                result.slotLimit(),
+                result.dailyOccupancyPercentage(),
+                result.slotOccupancyPercentage()
+        );
+    }
+
+    public static SlotCapacityResponse toResponse(SlotCapacityResult result) {
+        return new SlotCapacityResponse(
+                toResponse(result.timeSlot()),
+                result.pallets(),
+                result.limit(),
+                result.occupancyPercentage()
+        );
+    }
+
+    public static CapacityOverviewResponse toResponse(CapacityOverviewResult result) {
+        return new CapacityOverviewResponse(
+                result.date(),
+                result.dailyPallets(),
+                result.dailyLimit(),
+                result.dailyOccupancyPercentage(),
+                result.slots().stream().map(WebMapper::toResponse).toList()
         );
     }
 
@@ -115,7 +155,8 @@ public final class WebMapper {
         return new AppointmentCommandResponse(
                 toResponse(result.appointment()),
                 result.warnings(),
-                toResponse(result.capacity())
+                toResponse(result.capacity()),
+                result.emailSent()
         );
     }
 
@@ -128,6 +169,7 @@ public final class WebMapper {
                 result.startDate(),
                 result.endDate(),
                 result.totalAppointments(),
+                result.totalPallets(),
                 result.totalEffectivePallets(),
                 appointments
         );

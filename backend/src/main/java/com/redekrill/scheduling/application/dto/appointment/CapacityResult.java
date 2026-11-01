@@ -6,7 +6,9 @@ public record CapacityResult(
         long dailyPallets,
         long slotPallets,
         int dailyLimit,
-        int slotLimit
+        int slotLimit,
+        double dailyOccupancyPercentage,
+        double slotOccupancyPercentage
 ) {
 
     public static CapacityResult from(CapacityAssessment assessment) {
@@ -14,7 +16,9 @@ public record CapacityResult(
                 assessment.dailyPallets(),
                 assessment.slotPallets(),
                 assessment.dailyLimit(),
-                assessment.slotLimit()
+                assessment.slotLimit(),
+                assessment.dailyOccupancyPercentage(),
+                assessment.slotOccupancyPercentage()
         );
     }
 }

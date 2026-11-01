@@ -1,5 +1,6 @@
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
+import com.redekrill.scheduling.domain.model.AppointmentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,10 +30,13 @@ public class AppointmentJpaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "supplier_name", nullable = false, length = 160)
+    @Column(name = "order_id", nullable = false, unique = true)
+    private Long orderId;
+
+    @Column(name = "supplier_name", nullable = false, length = 80)
     private String supplierName;
 
-    @Column(name = "supplier_email", nullable = false, length = 160)
+    @Column(name = "supplier_email", nullable = false, length = 80)
     private String supplierEmail;
 
     @Column(name = "truck_plate", nullable = false, length = 20)
@@ -58,6 +62,20 @@ public class AppointmentJpaEntity {
 
     @Column(name = "effective_pallets", nullable = false)
     private int effectivePallets;
+
+    @Column(name = "notes", length = 500)
+    private String notes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private AppointmentStatus status;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "canceled_by_id")
+    private UserJpaEntity canceledBy;
+
+    @Column(name = "canceled_at")
+    private Instant canceledAt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by_id", nullable = false)

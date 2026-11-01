@@ -16,6 +16,7 @@ public final class TestFixtures {
 
     public static final Instant NOW = Instant.parse("2026-02-01T12:00:00Z");
     public static final LocalDate DATE = LocalDate.of(2026, 2, 10);
+    public static final long ORDER_ID = 1000L;
 
     private static final User USER = new User(
             1L, "Administrador", "admin@redekrill.com", "hashed-password",
@@ -65,6 +66,7 @@ public final class TestFixtures {
 
     public static Appointment appointment(Long id, int palletQuantity, PalletizationType palletizationType) {
         return Appointment.create(
+                ORDER_ID + id,
                 "Fornecedor Krill",
                 "fornecedor@example.com",
                 "ABC1D23",
@@ -73,8 +75,13 @@ public final class TestFixtures {
                 truckType(),
                 palletizationType,
                 palletQuantity,
+                "Carga refrigerada",
                 USER,
                 NOW
         ).withId(id);
+    }
+
+    public static Appointment canceledAppointment() {
+        return appointment().cancel(USER, NOW.plusSeconds(120));
     }
 }

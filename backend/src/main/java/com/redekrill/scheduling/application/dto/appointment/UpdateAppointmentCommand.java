@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 public record UpdateAppointmentCommand(
         Long id,
+        Long orderId,
         String supplierName,
         String supplierEmail,
         String truckPlate,
@@ -12,6 +13,7 @@ public record UpdateAppointmentCommand(
         Long truckTypeId,
         Long palletizationTypeId,
         int palletQuantity,
+        String notes,
         String actorEmail
 ) {
 }

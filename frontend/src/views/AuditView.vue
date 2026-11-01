@@ -76,6 +76,31 @@
               value="Exclusão"
               icon="pi pi-trash"
             />
+            <Tag
+              v-else-if="data.action === 'CANCEL'"
+              severity="danger"
+              value="Cancelamento"
+              icon="pi pi-ban"
+            />
+            <Tag
+              v-else-if="data.action === 'LOGIN'"
+              severity="success"
+              value="Login"
+              icon="pi pi-sign-in"
+            />
+            <Tag
+              v-else-if="data.action === 'LOGOUT'"
+              severity="secondary"
+              value="Logout"
+              icon="pi pi-sign-out"
+            />
+            <Tag
+              v-else-if="data.action === 'ACCESS_DENIED'"
+              severity="warn"
+              value="Acesso negado"
+              icon="pi pi-lock"
+            />
+            <Tag v-else severity="secondary" :value="data.action" />
           </template>
         </Column>
 
@@ -132,7 +157,8 @@ function translateEntity(entityName) {
   const map = {
     Appointment: 'Agendamento',
     TruckType: 'Tipo de Caminhão',
-    User: 'Usuário'
+    User: 'Usuário',
+    Endpoint: 'Endpoint'
   }
   return map[entityName] || entityName
 }

@@ -17,4 +17,12 @@ public record CapacityAssessment(
     public boolean hasWarnings() {
         return !warnings.isEmpty();
     }
+
+    public double dailyOccupancyPercentage() {
+        return CapacityPolicy.occupancyPercentage(dailyPallets, dailyLimit);
+    }
+
+    public double slotOccupancyPercentage() {
+        return CapacityPolicy.occupancyPercentage(slotPallets, slotLimit);
+    }
 }

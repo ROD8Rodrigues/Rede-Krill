@@ -3,6 +3,7 @@ package com.redekrill.scheduling.application.dto.appointment;
 import java.time.LocalDate;
 
 public record CreateAppointmentCommand(
+        Long orderId,
         String supplierName,
         String supplierEmail,
         String truckPlate,
@@ -11,6 +12,7 @@ public record CreateAppointmentCommand(
         Long truckTypeId,
         Long palletizationTypeId,
         int palletQuantity,
+        String notes,
         String actorEmail
 ) {
 }

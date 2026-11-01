@@ -4,10 +4,10 @@ import com.redekrill.scheduling.domain.model.Appointment;
 import com.redekrill.scheduling.domain.model.PageResult;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.infrastructure.persistence.entity.AppointmentJpaEntity;
+import com.redekrill.scheduling.infrastructure.persistence.entity.PalletizationTypeJpaEntity;
 import com.redekrill.scheduling.infrastructure.persistence.entity.TimeSlotJpaEntity;
 import com.redekrill.scheduling.infrastructure.persistence.entity.TruckTypeJpaEntity;
 import com.redekrill.scheduling.infrastructure.persistence.entity.UserJpaEntity;
-import com.redekrill.scheduling.infrastructure.persistence.entity.PalletizationTypeJpaEntity;
 import com.redekrill.scheduling.infrastructure.persistence.mapper.AppointmentPersistenceMapper;
 import com.redekrill.scheduling.infrastructure.persistence.repository.AppointmentJpaRepository;
 import jakarta.persistence.EntityManager;
@@ -35,6 +35,7 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
     public Appointment save(Appointment appointment) {
         AppointmentJpaEntity entity = new AppointmentJpaEntity();
         entity.setId(appointment.id());
+        entity.setOrderId(appointment.orderId());
         entity.setSupplierName(appointment.supplierName());
         entity.setSupplierEmail(appointment.supplierEmail());
         entity.setTruckPlate(appointment.truckPlate());
@@ -45,6 +46,12 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
                 PalletizationTypeJpaEntity.class, appointment.palletizationType().id()));
         entity.setPalletQuantity(appointment.palletQuantity());
         entity.setEffectivePallets(appointment.effectivePallets());
+        entity.setNotes(appointment.notes());
+        entity.setStatus(appointment.status());
+        entity.setCanceledBy(appointment.canceledBy() == null
+                ? null
+                : entityManager.getReference(UserJpaEntity.class, appointment.canceledBy().id()));
+        entity.setCanceledAt(appointment.canceledAt());
         entity.setCreatedBy(entityManager.getReference(UserJpaEntity.class, appointment.createdBy().id()));
         entity.setCreatedAt(appointment.createdAt());
         entity.setUpdatedAt(appointment.updatedAt());
@@ -80,30 +87,35 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
     }
 
     @Override
-    public void deleteById(Long id) {
-        repository.deleteById(id);
+    public long sumDailyPalletsByDate(LocalDate date) {
+        return nullSafe(repository.sumDailyPalletsByDate(date));
     }
 
     @Override
-    public long sumEffectivePalletsByDate(LocalDate date) {
-        return nullSafe(repository.sumEffectivePalletsByDate(date));
+    public long sumDailyPalletsByDateExcluding(LocalDate date, Long appointmentId) {
+        return nullSafe(repository.sumDailyPalletsByDateExcluding(date, appointmentId));
     }
 
     @Override
-    public long sumEffectivePalletsByDateExcluding(LocalDate date, Long appointmentId) {
-        return nullSafe(repository.sumEffectivePalletsByDateExcluding(date, appointmentId));
+    public long sumSlotPalletsByDateAndTimeSlot(LocalDate date, Long timeSlotId) {
+        return nullSafe(repository.sumSlotPalletsByDateAndTimeSlot(date, timeSlotId));
     }
 
     @Override
-    public long sumEffectivePalletsByDateAndTimeSlot(LocalDate date, Long timeSlotId) {
-        return nullSafe(repository.sumEffectivePalletsByDateAndTimeSlot(date, timeSlotId));
-    }
-
-    @Override
-    public long sumEffectivePalletsByDateAndTimeSlotExcluding(LocalDate date, Long timeSlotId,
-                                                              Long appointmentId) {
-        return nullSafe(repository.sumEffectivePalletsByDateAndTimeSlotExcluding(
+    public long sumSlotPalletsByDateAndTimeSlotExcluding(LocalDate date, Long timeSlotId,
+                                                         Long appointmentId) {
+        return nullSafe(repository.sumSlotPalletsByDateAndTimeSlotExcluding(
                 date, timeSlotId, appointmentId));
+    }
+
+    @Override
+    public boolean existsByOrderId(Long orderId) {
+        return repository.existsByOrderId(orderId);
+    }
+
+    @Override
+    public boolean existsByOrderIdAndIdNot(Long orderId, Long appointmentId) {
+        return repository.existsByOrderIdAndIdNot(orderId, appointmentId);
     }
 
     @Override
