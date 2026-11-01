@@ -6,7 +6,8 @@ import DashboardView from '../views/DashboardView.vue'
 import AppointmentsView from '../views/AppointmentsView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import TruckTypesView from '../views/TruckTypesView.vue'
-import UnderConstructionView from '../views/UnderConstructionView.vue'
+import UsersView from '../views/UsersView.vue'
+import AuditView from '../views/AuditView.vue'
 
 const routes = [
   {
@@ -51,21 +52,13 @@ const routes = [
       {
         path: 'users',
         name: 'users',
-        component: UnderConstructionView,
-        props: {
-          title: 'Usuários',
-          description: 'Gestão de usuários e perfis de acesso (ADMIN e USER).'
-        },
+        component: UsersView,
         meta: { title: 'Usuários', adminOnly: true }
       },
       {
         path: 'audit',
         name: 'audit',
-        component: UnderConstructionView,
-        props: {
-          title: 'Auditoria',
-          description: 'Trilha de auditoria das operações realizadas no sistema.'
-        },
+        component: AuditView,
         meta: { title: 'Auditoria', adminOnly: true }
       }
     ]
