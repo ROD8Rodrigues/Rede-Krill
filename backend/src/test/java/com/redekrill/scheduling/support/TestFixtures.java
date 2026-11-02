@@ -30,6 +30,11 @@ public final class TestFixtures {
         return USER;
     }
 
+    public static User otherUser() {
+        return new User(2L, "Operador", "operador@redekrill.com", "hashed-password",
+                Role.USER, true, NOW, NOW);
+    }
+
     public static User inactiveUser() {
         return new User(1L, "Administrador", "admin@redekrill.com", "hashed-password",
                 Role.ADMIN, false, NOW, NOW);

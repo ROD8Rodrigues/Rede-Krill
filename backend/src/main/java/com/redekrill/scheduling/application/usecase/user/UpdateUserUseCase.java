@@ -9,6 +9,7 @@ import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.AuditAction;
+import com.redekrill.scheduling.domain.model.Role;
 import com.redekrill.scheduling.domain.model.User;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 
@@ -47,6 +48,8 @@ public class UpdateUserUseCase {
         User existing = userRepository.findById(command.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado."));
 
+        validateSelfUpdate(existing, command);
+
         String email = normalizeEmail(command.email());
         if (userRepository.existsByEmailAndIdNot(email, existing.id())) {
             throw new ConflictException("Já existe um usuário com o e-mail informado.");
@@ -82,6 +85,21 @@ public class UpdateUserUseCase {
         });
 
         return UserResult.from(saved);
+    }
+
+    private void validateSelfUpdate(User existing, UpdateUserCommand command) {
+        boolean isSelf = command.actorEmail() != null
+                && existing.email().equalsIgnoreCase(command.actorEmail().trim());
+
+        if (!isSelf) {
+            return;
+        }
+        if (!command.active()) {
+            throw new ConflictException("Administrador não pode desativar a própria conta.");
+        }
+        if (command.role() != Role.ADMIN) {
+            throw new ConflictException("Administrador não pode remover o próprio perfil ADMIN.");
+        }
     }
 
     private String normalizeEmail(String email) {

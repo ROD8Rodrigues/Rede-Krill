@@ -305,6 +305,46 @@ class SchedulingApiIntegrationTest {
     }
 
     @Test
+    void preventsAdminFromDeactivatingOrDemotingOwnAccount() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+        mockMvc.perform(put("/api/users/1")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Administrador",
+                                  "email": "admin@redekrill.com",
+                                  "role": "ADMIN",
+                                  "active": false
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Administrador não pode desativar a própria conta."));
+
+        mockMvc.perform(put("/api/users/1")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Administrador",
+                                  "email": "admin@redekrill.com",
+                                  "role": "USER",
+                                  "active": true
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message")
+                        .value("Administrador não pode remover o próprio perfil ADMIN."));
+
+        login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        mockMvc.perform(get("/api/audit-logs")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void validatesAppointmentPayload() throws Exception {
         String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
 

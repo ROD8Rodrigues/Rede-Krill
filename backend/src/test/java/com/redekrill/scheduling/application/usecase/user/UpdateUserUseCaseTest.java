@@ -55,12 +55,12 @@ class UpdateUserUseCaseTest {
 
     @Test
     void updatesUserWithoutChangingPassword() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.user()));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.otherUser()));
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, User.class));
 
         UserResult result = useCase.execute(new UpdateUserCommand(
-                1L, "Novo Nome", "Novo@RedeKrill.com", Role.USER, false, null, "admin@redekrill.com"));
+                2L, "Novo Nome", "Novo@RedeKrill.com", Role.USER, false, null, "admin@redekrill.com"));
 
         assertThat(result.name()).isEqualTo("Novo Nome");
         assertThat(result.email()).isEqualTo("novo@redekrill.com");
@@ -71,9 +71,35 @@ class UpdateUserUseCaseTest {
                 eq("admin@redekrill.com"),
                 eq(AuditAction.UPDATE),
                 eq("User"),
-                eq(1L),
+                eq(2L),
                 contains("novo@redekrill.com")
         );
+    }
+
+    @Test
+    void rejectsSelfDeactivation() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.user()));
+
+        assertThatThrownBy(() -> useCase.execute(new UpdateUserCommand(
+                1L, "Administrador", "admin@redekrill.com", Role.ADMIN, false, null,
+                "admin@redekrill.com")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Administrador não pode desativar a própria conta.");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsSelfRemovalOfAdminRole() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(TestFixtures.user()));
+
+        assertThatThrownBy(() -> useCase.execute(new UpdateUserCommand(
+                1L, "Administrador", "admin@redekrill.com", Role.USER, true, null,
+                "admin@redekrill.com")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Administrador não pode remover o próprio perfil ADMIN.");
+
+        verify(userRepository, never()).save(any());
     }
 
     @Test
