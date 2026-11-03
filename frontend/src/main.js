@@ -8,10 +8,12 @@ import 'primeicons/primeicons.css'
 import './style.css'
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './stores/auth'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 app.use(PrimeVue, {
   theme: {
@@ -24,5 +26,16 @@ app.use(PrimeVue, {
 })
 app.use(ToastService)
 app.use(ConfirmationService)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:expired', () => {
+    const auth = useAuthStore(pinia)
+    auth.user = null
+    const current = router.currentRoute.value
+    if (current.name !== 'login') {
+      router.replace({ name: 'login', query: { redirect: current.fullPath } })
+    }
+  })
+}
 
 app.mount('#app')

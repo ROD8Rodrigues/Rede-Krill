@@ -11,7 +11,9 @@
       :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
     >
       <div class="flex items-center gap-3 border-b border-slate-800 px-6 py-6">
-        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-500 font-bold text-white">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-500 font-bold text-white"
+        >
           RK
         </div>
         <div>
@@ -49,11 +51,15 @@
 
       <div class="border-t border-slate-800 p-4">
         <div class="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-sm font-semibold">
+          <div
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-sm font-semibold"
+          >
             {{ initials }}
           </div>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-white">{{ auth.user?.name || 'Usuário' }}</p>
+            <p class="truncate text-sm font-medium text-white">
+              {{ auth.user?.name || 'Usuário' }}
+            </p>
             <p class="truncate text-xs text-slate-400">{{ auth.user?.email }}</p>
           </div>
         </div>
@@ -69,7 +75,9 @@
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 lg:px-8">
+      <header
+        class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 lg:px-8"
+      >
         <div class="flex items-center gap-3">
           <button
             type="button"
@@ -97,7 +105,9 @@
         <RouterView />
       </main>
 
-      <footer class="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-400 lg:px-8">
+      <footer
+        class="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-400 lg:px-8"
+      >
         Rede Krill · Desafio Dev · {{ new Date().getFullYear() }}
       </footer>
     </div>
@@ -119,13 +129,13 @@ const navigation = [
   { name: 'appointments', label: 'Agendamentos', icon: 'pi pi-calendar' },
   { name: 'reports', label: 'Relatórios', icon: 'pi pi-chart-bar' },
   { name: 'truck-types', label: 'Tipos de caminhão', icon: 'pi pi-truck' },
+  { name: 'time-slots', label: 'Faixas horárias', icon: 'pi pi-clock' },
+  { name: 'palletization-types', label: 'Paletização', icon: 'pi pi-box' },
   { name: 'users', label: 'Usuários', icon: 'pi pi-users', adminOnly: true },
   { name: 'audit', label: 'Auditoria', icon: 'pi pi-history', adminOnly: true }
 ]
 
-const visibleItems = computed(() =>
-  navigation.filter((item) => !item.adminOnly || auth.isAdmin)
-)
+const visibleItems = computed(() => navigation.filter((item) => !item.adminOnly || auth.isAdmin))
 
 const pageTitle = computed(() => route.meta.title || 'Painel')
 
