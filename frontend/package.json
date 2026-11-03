@@ -17,7 +17,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@primeuix/themes": "^2.0.3",
+    "@primeuix/themes": "^3.1.0",
     "axios": "^1.7.9",
     "pinia": "^2.3.0",
     "primeicons": "^7.0.0",
