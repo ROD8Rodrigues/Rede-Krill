@@ -22,3 +22,7 @@ frontend/*.log
 # OS
 .DS_Store
 Thumbs.db
+playwright-report/
+test-results/
+frontend/playwright-report/
+frontend/test-results/
