@@ -1,13 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore, safeRedirect } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
 import LoginView from '../views/LoginView.vue'
-import DashboardView from '../views/DashboardView.vue'
-import AppointmentsView from '../views/AppointmentsView.vue'
-import ReportsView from '../views/ReportsView.vue'
-import TruckTypesView from '../views/TruckTypesView.vue'
-import UsersView from '../views/UsersView.vue'
-import AuditView from '../views/AuditView.vue'
+
+const ChangePasswordView = () => import('../views/ChangePasswordView.vue')
+const DashboardView = () => import('../views/DashboardView.vue')
+const AppointmentsView = () => import('../views/AppointmentsView.vue')
+const ReportsView = () => import('../views/ReportsView.vue')
+const TruckTypesView = () => import('../views/TruckTypesView.vue')
+const TimeSlotsView = () => import('../views/TimeSlotsView.vue')
+const PalletizationTypesView = () => import('../views/PalletizationTypesView.vue')
+const UsersView = () => import('../views/UsersView.vue')
+const AuditView = () => import('../views/AuditView.vue')
 
 const routes = [
   {
@@ -15,6 +19,12 @@ const routes = [
     name: 'login',
     component: LoginView,
     meta: { guestOnly: true }
+  },
+  {
+    path: '/change-password',
+    name: 'change-password',
+    component: ChangePasswordView,
+    meta: { requiresAuth: true, title: 'Troca de senha' }
   },
   {
     path: '/',
@@ -50,6 +60,18 @@ const routes = [
         meta: { title: 'Tipos de caminhão' }
       },
       {
+        path: 'time-slots',
+        name: 'time-slots',
+        component: TimeSlotsView,
+        meta: { title: 'Faixas horárias' }
+      },
+      {
+        path: 'palletization-types',
+        name: 'palletization-types',
+        component: PalletizationTypesView,
+        meta: { title: 'Tipos de paletização' }
+      },
+      {
         path: 'users',
         name: 'users',
         component: UsersView,
@@ -78,21 +100,26 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
+  if (!auth.initialized) {
+    await auth.initialize()
+  }
+
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    return { name: 'dashboard' }
+    return auth.mustChangePassword
+      ? { name: 'change-password' }
+      : { path: safeRedirect(to.query.redirect) }
   }
 
-  if (auth.isAuthenticated && !auth.user) {
-    try {
-      await auth.loadCurrentUser()
-    } catch {
-      auth.logout()
-      return { name: 'login' }
-    }
+  if (auth.isAuthenticated && auth.mustChangePassword && to.name !== 'change-password') {
+    return { name: 'change-password' }
+  }
+
+  if (auth.isAuthenticated && !auth.mustChangePassword && to.name === 'change-password') {
+    return { name: 'dashboard' }
   }
 
   if (to.meta.adminOnly && !auth.isAdmin) {
