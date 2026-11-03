@@ -1,0 +1,54 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    clean-disabled: false
+  mail:
+    host: localhost
+    port: 3025
+
+app:
+  jwt:
+    secret: cmVkZWtyaWxsLXRlc3Qtc2VjcmV0LWtleS0yMDI2ISE=
+    expiration: 15m
+  auth:
+    access-cookie-name: redekrill_access
+    refresh-cookie-name: redekrill_refresh
+    cookie-secure: false
+    cookie-same-site: Lax
+    expose-token-in-response: true
+    refresh-expiration: 7d
+  security:
+    trust-forwarded-headers: false
+    login-max-attempts-per-account: 100
+    login-max-attempts-per-ip: 100
+    login-window: 15m
+    login-lockout: 5m
+  cors:
+    allowed-origins: http://localhost:5173
+  email:
+    from: nao-responda@redekrill.com
+    outbox:
+      enabled: false
+      max-attempts: 5
+      poll-interval-ms: 60000
+      initial-backoff-seconds: 60
+      batch-size: 20
+  seed:
+    enabled: true
+    admin-name: Administrador de Teste
+    admin-email: admin@redekrill.com
+    admin-password: TestAdmin@2026!
+    require-password-change: false
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.redekrill.scheduling: INFO

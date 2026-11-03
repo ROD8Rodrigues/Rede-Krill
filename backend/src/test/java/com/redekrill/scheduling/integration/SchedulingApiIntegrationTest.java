@@ -1,42 +1,46 @@
 package com.redekrill.scheduling.integration;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.redekrill.scheduling.application.port.EmailNotifier;
-import com.redekrill.scheduling.domain.model.Appointment;
-import io.zonky.test.db.AutoConfigureEmbeddedDatabase;
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.time.Instant;
+import java.util.Map;
 
-import static io.zonky.test.db.AutoConfigureEmbeddedDatabase.DatabaseProvider.ZONKY;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@AutoConfigureEmbeddedDatabase(provider = ZONKY)
+@ActiveProfiles("test")
 class SchedulingApiIntegrationTest {
 
     private static final String ADMIN_EMAIL = "admin@redekrill.com";
-    private static final String ADMIN_PASSWORD = "Admin@12345";
+    private static final String ADMIN_PASSWORD = "TestAdmin@2026!";
+    private static final String ACCESS_COOKIE = "redekrill_access";
+    private static final String REFRESH_COOKIE = "redekrill_refresh";
+
+    private static final EmbeddedPostgres POSTGRES = startPostgres();
 
     @Autowired
     private MockMvc mockMvc;
@@ -44,8 +48,25 @@ class SchedulingApiIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
-    private EmailNotifier emailNotifier;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @DynamicPropertySource
+    static void datasourceProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url",
+                () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
+        registry.add("spring.datasource.username", () -> "postgres");
+        registry.add("spring.datasource.password", () -> "postgres");
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    }
+
+    private static EmbeddedPostgres startPostgres() {
+        try {
+            return EmbeddedPostgres.builder().start();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Não foi possível iniciar o PostgreSQL embarcado.", exception);
+        }
+    }
 
     @Test
     void supportsTheCompleteSchedulingFlowWithRoleRestrictions() throws Exception {
@@ -63,8 +84,8 @@ class SchedulingApiIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[1].capacityMultiplier").value(2));
 
-        createUser(adminToken, "Operador", "operador@redekrill.com", "Operador@123", "USER");
-        String userToken = login("operador@redekrill.com", "Operador@123");
+        String userToken = createActiveUser(adminToken, "Operador", "operador@redekrill.com",
+                "Operador@123", "Operador@4567", "USER");
 
         mockMvc.perform(get("/api/appointments").header(HttpHeaders.AUTHORIZATION, bearer(userToken)))
                 .andExpect(status().isOk());
@@ -95,20 +116,25 @@ class SchedulingApiIntegrationTest {
                 .andExpect(jsonPath("$.appointment.effectivePallets").value(60))
                 .andExpect(jsonPath("$.appointment.slotPallets").value(60))
                 .andExpect(jsonPath("$.warnings").isEmpty())
-                .andExpect(jsonPath("$.emailSent").value(true))
+                .andExpect(jsonPath("$.emailQueued").value(true))
+                .andExpect(jsonPath("$.emailSent").value(false))
                 .andExpect(jsonPath("$.capacity.dailyPallets").value(30))
                 .andExpect(jsonPath("$.capacity.slotPallets").value(60))
                 .andExpect(jsonPath("$.capacity.dailyOccupancyPercentage").value(6.3))
                 .andExpect(jsonPath("$.capacity.slotOccupancyPercentage").value(50.0))
                 .andReturn();
 
-        Instant persistedCreatedAt = Instant.parse(objectMapper
-                .readTree(created.getResponse().getContentAsString())
-                .at("/appointment/createdAt").asText());
+        JsonNode createdBody = objectMapper.readTree(created.getResponse().getContentAsString());
+        long appointmentId = createdBody.at("/appointment/id").asLong();
+        Instant persistedCreatedAt = Instant.parse(
+                createdBody.at("/appointment/createdAt").asText());
         assertThat(persistedCreatedAt)
                 .isBetween(Instant.now().minusSeconds(300), Instant.now().plusSeconds(300));
 
-        verify(emailNotifier).sendAppointmentConfirmation(any(Appointment.class), anyList());
+        Integer queued = jdbcTemplate.queryForObject(
+                "select count(*) from email_outbox where appointment_id = ? and status = 'PENDING'",
+                Integer.class, appointmentId);
+        assertThat(queued).isEqualTo(1);
 
         mockMvc.perform(get("/api/appointments/capacity")
                         .param("date", "2026-03-10")
@@ -137,14 +163,18 @@ class SchedulingApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAppointments").value(1))
                 .andExpect(jsonPath("$.totalPallets").value(30))
-                .andExpect(jsonPath("$.totalEffectivePallets").value(60));
+                .andExpect(jsonPath("$.totalEffectivePallets").value(60))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalPages").value(1));
 
         mockMvc.perform(get("/api/audit-logs").param("size", "100")
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.entityName == 'Appointment')]").isNotEmpty())
                 .andExpect(jsonPath("$.content[?(@.action == 'CREATE')]").isNotEmpty())
-                .andExpect(jsonPath("$.content[?(@.action == 'LOGIN')]").isNotEmpty());
+                .andExpect(jsonPath("$.content[?(@.action == 'LOGIN')]").isNotEmpty())
+                .andExpect(jsonPath("$.content[?(@.action == 'PASSWORD_CHANGE')]").isNotEmpty());
 
         mockMvc.perform(get("/api/audit-logs").header(HttpHeaders.AUTHORIZATION, bearer(userToken)))
                 .andExpect(status().isForbidden());
@@ -218,22 +248,28 @@ class SchedulingApiIntegrationTest {
     }
 
     @Test
-    void keepsAppointmentAndWarnsWhenEmailFails() throws Exception {
-        doThrow(new IllegalStateException("SMTP indisponível"))
-                .when(emailNotifier).sendAppointmentConfirmation(any(Appointment.class), anyList());
-
+    void queuesEmailWithoutBlockingAppointmentCreation() throws Exception {
         String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
 
-        mockMvc.perform(post("/api/appointments")
+        MvcResult created = mockMvc.perform(post("/api/appointments")
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentPayload(9201, "Fornecedor Sem Email",
                                 "sem-email@example.com", "2026-05-20", 10, null)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.emailQueued").value(true))
                 .andExpect(jsonPath("$.emailSent").value(false))
-                .andExpect(jsonPath("$.warnings[0]").value(
-                        "O agendamento foi salvo, mas não foi possível enviar o e-mail de "
-                                + "confirmação. O fornecedor não foi notificado."));
+                .andExpect(jsonPath("$.warnings").isEmpty())
+                .andReturn();
+
+        long appointmentId = objectMapper.readTree(created.getResponse().getContentAsString())
+                .at("/appointment/id").asLong();
+        Map<String, Object> outbox = jdbcTemplate.queryForMap(
+                "select status, attempts, recipient from email_outbox where appointment_id = ?",
+                appointmentId);
+        assertThat(outbox.get("status")).isEqualTo("PENDING");
+        assertThat(((Number) outbox.get("attempts")).intValue()).isZero();
+        assertThat(outbox.get("recipient")).isEqualTo("sem-email@example.com");
 
         mockMvc.perform(get("/api/appointments")
                         .param("startDate", "2026-05-01")
@@ -267,8 +303,11 @@ class SchedulingApiIntegrationTest {
     @Test
     void recordsLogoutAndAccessDeniedInAudit() throws Exception {
         String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
-        createUser(adminToken, "Negado", "negado@redekrill.com", "Negado@123", "USER");
-        String userToken = login("negado@redekrill.com", "Negado@123");
+        String userToken = createActiveUser(adminToken, "Negado", "negado@redekrill.com",
+                "Negado@12345", "Negado@67890", "USER");
+
+        mockMvc.perform(get("/api/users").header(HttpHeaders.AUTHORIZATION, bearer(userToken)))
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/auth/logout")
                         .header(HttpHeaders.AUTHORIZATION, bearer(userToken)))
@@ -279,20 +318,89 @@ class SchedulingApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(appointmentPayload(9401, "Fornecedor Negado", "negado@example.com",
                                 "2026-07-10", 10, null)))
-                .andExpect(status().isForbidden());
-
-        String refreshedAdminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/api/audit-logs").param("size", "100")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(refreshedAdminToken)))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.action == 'LOGOUT')]").isNotEmpty())
                 .andExpect(jsonPath("$.content[?(@.action == 'ACCESS_DENIED')]").isNotEmpty());
     }
 
     @Test
-    void rejectsInvalidCredentialsAndUnauthenticatedRequests() throws Exception {
+    void authenticatesWithCookiesRotatesRefreshAndRevokesSession() throws Exception {
+        Csrf csrf = csrf();
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", ADMIN_EMAIL, "password", ADMIN_PASSWORD))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.user.mustChangePassword").value(false))
+                .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                        org.hamcrest.Matchers.containsString("HttpOnly")))
+                .andReturn();
+
+        Cookie accessCookie = loginResult.getResponse().getCookie(ACCESS_COOKIE);
+        Cookie refreshCookie = loginResult.getResponse().getCookie(REFRESH_COOKIE);
+        assertThat(accessCookie).isNotNull();
+        assertThat(accessCookie.getPath()).isEqualTo("/");
+        assertThat(refreshCookie).isNotNull();
+        assertThat(refreshCookie.getPath()).isEqualTo("/api/auth");
+        String accessToken = objectMapper.readTree(
+                loginResult.getResponse().getContentAsString()).get("token").asText();
+
+        mockMvc.perform(get("/api/auth/me").cookie(accessCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(ADMIN_EMAIL));
+
+        Csrf refreshCsrf = csrf();
+        MvcResult refreshed = mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
+                        .cookie(refreshCsrf.cookie())
+                        .header(refreshCsrf.headerName(), refreshCsrf.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.email").value(ADMIN_EMAIL))
+                .andReturn();
+
+        Cookie rotatedRefreshCookie = refreshed.getResponse().getCookie(REFRESH_COOKIE);
+        assertThat(rotatedRefreshCookie).isNotNull();
+        assertThat(rotatedRefreshCookie.getValue()).isNotEqualTo(refreshCookie.getValue());
+        String refreshedToken = objectMapper.readTree(
+                refreshed.getResponse().getContentAsString()).get("token").asText();
+
+        Csrf replayCsrf = csrf();
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(refreshCookie)
+                        .cookie(replayCsrf.cookie())
+                        .header(replayCsrf.headerName(), replayCsrf.token()))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(refreshedToken)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(refreshedToken)))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(accessToken).isNotBlank();
+    }
+
+    @Test
+    void rejectsLoginWithoutCsrfAndInvalidCredentials() throws Exception {
         mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"admin@redekrill.com","password":"TestAdmin@2026!"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        Csrf csrf = csrf();
+        mockMvc.perform(post("/api/auth/login")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"admin@redekrill.com","password":"senha-errada"}
@@ -313,7 +421,7 @@ class SchedulingApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Administrador",
+                                  "name": "Administrador de Teste",
                                   "email": "admin@redekrill.com",
                                   "role": "ADMIN",
                                   "active": false
@@ -328,7 +436,7 @@ class SchedulingApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Administrador",
+                                  "name": "Administrador de Teste",
                                   "email": "admin@redekrill.com",
                                   "role": "USER",
                                   "active": true
@@ -371,17 +479,76 @@ class SchedulingApiIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.notes").exists());
     }
 
+    @Test
+    void requiresActiveFlagOnUserUpdate() throws Exception {
+        String adminToken = login(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+        mockMvc.perform(put("/api/users/1")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Administrador de Teste",
+                                  "email": "admin@redekrill.com",
+                                  "role": "ADMIN"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.active").exists());
+    }
+
+    private Csrf csrf() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        Cookie cookie = result.getResponse().getCookie("XSRF-TOKEN");
+        assertThat(cookie).isNotNull();
+        return new Csrf(body.get("headerName").asText(), body.get("token").asText(), cookie);
+    }
+
     private String login(String email, String password) throws Exception {
+        Csrf csrf = csrf();
         MvcResult result = mockMvc.perform(post("/api/auth/login")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                java.util.Map.of("email", email, "password", password))))
+                                Map.of("email", email, "password", password))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andReturn();
 
-        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        return body.get("token").asText();
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("token").asText();
+    }
+
+    private String createActiveUser(String adminToken, String name, String email,
+                                    String initialPassword, String finalPassword,
+                                    String role) throws Exception {
+        createUser(adminToken, name, email, initialPassword, role);
+        String initialToken = login(email, initialPassword);
+
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(initialToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mustChangePassword").value(true));
+
+        mockMvc.perform(get("/api/appointments").header(HttpHeaders.AUTHORIZATION, bearer(initialToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+
+        mockMvc.perform(post("/api/auth/change-password")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(initialToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "currentPassword", initialPassword,
+                                "newPassword", finalPassword))))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/appointments").header(HttpHeaders.AUTHORIZATION, bearer(initialToken)))
+                .andExpect(status().isUnauthorized());
+
+        return login(email, finalPassword);
     }
 
     private void createUser(String adminToken, String name, String email, String password,
@@ -389,14 +556,15 @@ class SchedulingApiIntegrationTest {
         mockMvc.perform(post("/api/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                        .content(objectMapper.writeValueAsString(Map.of(
                                 "name", name,
                                 "email", email,
                                 "password", password,
                                 "role", role))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.role").value(role));
+                .andExpect(jsonPath("$.role").value(role))
+                .andExpect(jsonPath("$.mustChangePassword").value(true));
     }
 
     private String appointmentPayload(long orderId, String supplierName, String supplierEmail,
@@ -420,5 +588,8 @@ class SchedulingApiIntegrationTest {
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private record Csrf(String headerName, String token, Cookie cookie) {
     }
 }

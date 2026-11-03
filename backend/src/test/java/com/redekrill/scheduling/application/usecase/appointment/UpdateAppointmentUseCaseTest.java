@@ -89,7 +89,8 @@ class UpdateAppointmentUseCaseTest {
         assertThat(result.appointment().timeSlot().id()).isEqualTo(2L);
         assertThat(result.warnings()).hasSize(1);
         assertThat(result.capacity().dailyPallets()).isEqualTo(481);
-        assertThat(result.emailSent()).isNull();
+        assertThat(result.emailQueued()).isFalse();
+        assertThat(result.emailSent()).isFalse();
         verify(auditService).record(
                 eq("admin@redekrill.com"),
                 eq(AuditAction.UPDATE),

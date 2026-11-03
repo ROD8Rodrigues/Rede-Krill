@@ -2,6 +2,7 @@ package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentReportResult;
 import com.redekrill.scheduling.domain.exception.DomainException;
+import com.redekrill.scheduling.domain.model.PageResult;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.support.TestFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GetAppointmentReportUseCaseTest {
 
+    private static final int DEFAULT_PAGE = 0;
+    private static final int DEFAULT_SIZE = 20;
+
     @Mock
     private AppointmentRepository appointmentRepository;
 
@@ -34,16 +38,23 @@ class GetAppointmentReportUseCaseTest {
     void aggregatesAppointmentsAndBothPalletTotals() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.findByPeriod(start, end)).thenReturn(List.of(
-                TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
-                TestFixtures.appointment(2L, 10, TestFixtures.nonPalletized())
-        ));
+        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+                .thenReturn(PageResult.of(List.of(
+                        TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
+                        TestFixtures.appointment(2L, 10, TestFixtures.nonPalletized())
+                ), DEFAULT_PAGE, DEFAULT_SIZE, 2, 1));
+        when(appointmentRepository.countByPeriod(start, end)).thenReturn(2L);
+        when(appointmentRepository.sumPalletsByPeriod(start, end)).thenReturn(20L);
+        when(appointmentRepository.sumEffectivePalletsByPeriod(start, end)).thenReturn(30L);
 
         AppointmentReportResult result = useCase.execute(start, end);
 
         assertThat(result.totalAppointments()).isEqualTo(2);
         assertThat(result.totalPallets()).isEqualTo(20);
         assertThat(result.totalEffectivePallets()).isEqualTo(30);
+        assertThat(result.page()).isZero();
+        assertThat(result.size()).isEqualTo(DEFAULT_SIZE);
+        assertThat(result.totalPages()).isEqualTo(1);
         assertThat(result.appointments()).hasSize(2);
         assertThat(result.appointments().get(1).status().name()).isEqualTo("ACTIVE");
         assertThat(result.startDate()).isEqualTo(start);
@@ -54,10 +65,12 @@ class GetAppointmentReportUseCaseTest {
     void keepsCanceledAppointmentsInTheReport() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.findByPeriod(start, end)).thenReturn(List.of(
-                TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
-                TestFixtures.canceledAppointment()
-        ));
+        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+                .thenReturn(PageResult.of(List.of(
+                        TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
+                        TestFixtures.canceledAppointment()
+                ), DEFAULT_PAGE, DEFAULT_SIZE, 2, 1));
+        when(appointmentRepository.countByPeriod(start, end)).thenReturn(2L);
 
         AppointmentReportResult result = useCase.execute(start, end);
 
@@ -70,7 +83,9 @@ class GetAppointmentReportUseCaseTest {
     void returnsEmptyReportWhenNoAppointmentsExist() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.findByPeriod(start, end)).thenReturn(List.of());
+        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+                .thenReturn(PageResult.of(List.of(), DEFAULT_PAGE, DEFAULT_SIZE, 0, 0));
+        when(appointmentRepository.countByPeriod(start, end)).thenReturn(0L);
 
         AppointmentReportResult result = useCase.execute(start, end);
 

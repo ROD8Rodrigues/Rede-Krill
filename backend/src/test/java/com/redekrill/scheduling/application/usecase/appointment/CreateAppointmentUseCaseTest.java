@@ -2,8 +2,8 @@ package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
 import com.redekrill.scheduling.application.dto.appointment.CreateAppointmentCommand;
-import com.redekrill.scheduling.application.port.EmailNotifier;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.EmailOutboxService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
@@ -34,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,7 +54,7 @@ class CreateAppointmentUseCaseTest {
     @Mock
     private AuditService auditService;
     @Mock
-    private EmailNotifier emailNotifier;
+    private EmailOutboxService emailOutboxService;
 
     private CreateAppointmentUseCase useCase;
 
@@ -69,7 +68,7 @@ class CreateAppointmentUseCaseTest {
                 userRepository,
                 new CapacityPolicy(),
                 auditService,
-                emailNotifier,
+                emailOutboxService,
                 new ImmediateTransactionRunner(),
                 Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC)
         );
@@ -98,7 +97,8 @@ class CreateAppointmentUseCaseTest {
         assertThat(result.capacity().dailyPallets()).isEqualTo(485);
         assertThat(result.capacity().slotPallets()).isEqualTo(110);
         assertThat(result.capacity().dailyOccupancyPercentage()).isEqualTo(101.0);
-        assertThat(result.emailSent()).isTrue();
+        assertThat(result.emailQueued()).isTrue();
+        assertThat(result.emailSent()).isFalse();
 
         verify(auditService).record(
                 eq("admin@redekrill.com"),
@@ -107,7 +107,7 @@ class CreateAppointmentUseCaseTest {
                 eq(10L),
                 contains("pallets=10")
         );
-        verify(emailNotifier).sendAppointmentConfirmation(any(Appointment.class), eq(result.warnings()));
+        verify(emailOutboxService).enqueue(any(Appointment.class), eq(result.warnings()));
     }
 
     @Test
@@ -129,24 +129,22 @@ class CreateAppointmentUseCaseTest {
     }
 
     @Test
-    void keepsAppointmentAndExplicitlyWarnsWhenEmailDeliveryFails() {
+    void queuesEmailInOutboxWithoutPretendingItWasSent() {
         stubReferences(TestFixtures.palletized());
         when(userRepository.findByEmail("admin@redekrill.com"))
                 .thenReturn(Optional.of(TestFixtures.user()));
         when(appointmentRepository.save(any(Appointment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, Appointment.class).withId(12L));
-        doThrow(new IllegalStateException("SMTP indisponível"))
-                .when(emailNotifier).sendAppointmentConfirmation(any(Appointment.class), any());
 
         AppointmentCommandResult result = useCase.execute(palletizedCommand(5));
 
         assertThat(result.appointment().id()).isEqualTo(12L);
         assertThat(result.appointment().effectivePallets()).isEqualTo(5);
+        assertThat(result.emailQueued()).isTrue();
         assertThat(result.emailSent()).isFalse();
-        assertThat(result.warnings())
-                .contains("O agendamento foi salvo, mas não foi possível enviar o e-mail de "
-                        + "confirmação. O fornecedor não foi notificado.");
+        assertThat(result.warnings()).isEmpty();
         verify(appointmentRepository).save(any(Appointment.class));
+        verify(emailOutboxService).enqueue(any(Appointment.class), eq(result.warnings()));
         verify(auditService).record(eq("admin@redekrill.com"), eq(AuditAction.CREATE),
                 eq("Appointment"), eq(12L), any());
     }

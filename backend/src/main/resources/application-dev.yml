@@ -1,0 +1,22 @@
+spring:
+  jpa:
+    show-sql: false
+  flyway:
+    clean-disabled: true
+
+app:
+  auth:
+    cookie-secure: false
+    expose-token-in-response: true
+  seed:
+    enabled: ${SEED_ADMIN_ENABLED:true}
+    require-password-change: ${SEED_ADMIN_REQUIRE_PASSWORD_CHANGE:true}
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.redekrill.scheduling: DEBUG

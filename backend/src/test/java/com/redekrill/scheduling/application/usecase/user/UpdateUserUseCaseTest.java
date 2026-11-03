@@ -4,6 +4,7 @@ import com.redekrill.scheduling.application.dto.user.UpdateUserCommand;
 import com.redekrill.scheduling.application.dto.user.UserResult;
 import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.AuthSessionService;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
@@ -41,6 +42,8 @@ class UpdateUserUseCaseTest {
     private PasswordHasher passwordHasher;
     @Mock
     private AuditService auditService;
+    @Mock
+    private AuthSessionService authSessionService;
 
     private UpdateUserUseCase useCase;
 
@@ -49,6 +52,7 @@ class UpdateUserUseCaseTest {
         useCase = new UpdateUserUseCase(
                 userRepository, passwordHasher, auditService,
                 new ImmediateTransactionRunner(),
+                authSessionService,
                 Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC)
         );
     }
@@ -74,6 +78,7 @@ class UpdateUserUseCaseTest {
                 eq(2L),
                 contains("novo@redekrill.com")
         );
+        verify(authSessionService).revokeAllForUser(2L);
     }
 
     @Test
@@ -114,7 +119,9 @@ class UpdateUserUseCaseTest {
                 "NovaSenha@123", "admin@redekrill.com"));
 
         assertThat(result.email()).isEqualTo("admin@redekrill.com");
+        assertThat(result.mustChangePassword()).isTrue();
         verify(passwordHasher).hash("NovaSenha@123");
+        verify(authSessionService).revokeAllForUser(1L);
     }
 
     @Test

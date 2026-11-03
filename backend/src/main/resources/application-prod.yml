@@ -1,0 +1,34 @@
+spring:
+  flyway:
+    clean-disabled: true
+  jpa:
+    show-sql: false
+
+server:
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+
+app:
+  auth:
+    cookie-secure: true
+    expose-token-in-response: false
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Strict}
+  security:
+    trust-forwarded-headers: ${TRUST_FORWARDED_HEADERS:true}
+  seed:
+    enabled: ${SEED_ADMIN_ENABLED:false}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  structured:
+    format:
+      console: ${LOG_STRUCTURED_FORMAT:ecs}
