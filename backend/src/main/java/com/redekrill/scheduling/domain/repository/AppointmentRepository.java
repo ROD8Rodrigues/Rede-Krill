@@ -15,7 +15,15 @@ public interface AppointmentRepository {
 
     PageResult<Appointment> search(LocalDate startDate, LocalDate endDate, int page, int size);
 
+    PageResult<Appointment> searchReport(LocalDate startDate, LocalDate endDate, int page, int size);
+
     List<Appointment> findByPeriod(LocalDate startDate, LocalDate endDate);
+
+    long countByPeriod(LocalDate startDate, LocalDate endDate);
+
+    long sumPalletsByPeriod(LocalDate startDate, LocalDate endDate);
+
+    long sumEffectivePalletsByPeriod(LocalDate startDate, LocalDate endDate);
 
     /**
      * Soma a quantidade declarada (sem multiplicador) dos agendamentos ativos do dia.
@@ -42,4 +50,8 @@ public interface AppointmentRepository {
     boolean existsByOrderIdAndIdNot(Long orderId, Long appointmentId);
 
     boolean existsByTruckTypeId(Long truckTypeId);
+
+    boolean existsByTimeSlotId(Long timeSlotId);
+
+    boolean existsByPalletizationTypeId(Long palletizationTypeId);
 }

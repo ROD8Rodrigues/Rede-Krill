@@ -19,7 +19,8 @@ public record UpdateUserRequest(
         @NotNull(message = "Perfil é obrigatório.")
         Role role,
 
-        boolean active,
+        @NotNull(message = "Situação (active) é obrigatória.")
+        Boolean active,
 
         @Size(min = 8, max = 72, message = "Senha deve ter entre 8 e 72 caracteres.")
         String password

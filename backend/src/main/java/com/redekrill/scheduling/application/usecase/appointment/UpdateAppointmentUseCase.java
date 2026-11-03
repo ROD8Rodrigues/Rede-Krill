@@ -114,7 +114,8 @@ public class UpdateAppointmentUseCase {
                 AppointmentResult.from(prepared.appointment()),
                 assessment.warnings(),
                 CapacityResult.from(assessment),
-                null
+                false,
+                false
         );
     }
 

@@ -51,6 +51,7 @@ public final class WebMapper {
                 result.email(),
                 result.role(),
                 result.active(),
+                result.mustChangePassword(),
                 result.createdAt()
         );
     }
@@ -156,6 +157,7 @@ public final class WebMapper {
                 toResponse(result.appointment()),
                 result.warnings(),
                 toResponse(result.capacity()),
+                result.emailQueued(),
                 result.emailSent()
         );
     }
@@ -171,6 +173,9 @@ public final class WebMapper {
                 result.totalAppointments(),
                 result.totalPallets(),
                 result.totalEffectivePallets(),
+                result.page(),
+                result.size(),
+                result.totalPages(),
                 appointments
         );
     }

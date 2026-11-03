@@ -6,7 +6,8 @@ public record AppointmentCommandResponse(
         AppointmentResponse appointment,
         List<String> warnings,
         CapacityResponse capacity,
-        Boolean emailSent
+        boolean emailQueued,
+        boolean emailSent
 ) {
 
     public AppointmentCommandResponse {

@@ -73,9 +73,44 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
                                                   @Param("timeSlotId") Long timeSlotId,
                                                   @Param("appointmentId") Long appointmentId);
 
+    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
+    @Query("""
+            select a from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+            order by a.appointmentDate asc, a.timeSlot.startTime asc, a.id asc
+            """)
+    Page<AppointmentJpaEntity> searchReport(@Param("startDate") LocalDate startDate,
+                                            @Param("endDate") LocalDate endDate,
+                                            Pageable pageable);
+
+    @Query("""
+            select count(a) from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+            """)
+    long countByPeriod(@Param("startDate") LocalDate startDate,
+                       @Param("endDate") LocalDate endDate);
+
+    @Query("""
+            select coalesce(sum(a.palletQuantity), 0) from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+            """)
+    long sumPalletsByPeriod(@Param("startDate") LocalDate startDate,
+                            @Param("endDate") LocalDate endDate);
+
+    @Query("""
+            select coalesce(sum(a.effectivePallets), 0) from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+            """)
+    long sumEffectivePalletsByPeriod(@Param("startDate") LocalDate startDate,
+                                     @Param("endDate") LocalDate endDate);
+
     boolean existsByOrderId(Long orderId);
 
     boolean existsByOrderIdAndIdNot(Long orderId, Long appointmentId);
 
     boolean existsByTruckTypeId(Long truckTypeId);
+
+    boolean existsByTimeSlotId(Long timeSlotId);
+
+    boolean existsByPalletizationTypeId(Long palletizationTypeId);
 }

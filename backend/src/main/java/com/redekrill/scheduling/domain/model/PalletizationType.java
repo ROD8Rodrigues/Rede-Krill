@@ -14,8 +14,18 @@ public record PalletizationType(
     public PalletizationType {
         Objects.requireNonNull(code, "Código do tipo de paletização é obrigatório.");
         name = DomainValidation.requireText(name, "Nome do tipo de paletização é obrigatório.");
-        if (capacityMultiplier < 1) {
-            throw new DomainException("Multiplicador de capacidade deve ser maior que zero.");
+        if (code == PalletizationCode.PALETIZADO && capacityMultiplier != 1) {
+            throw new DomainException("O tipo Paletizado deve manter multiplicador 1.");
         }
+        if (code == PalletizationCode.NAO_PALETIZADO && capacityMultiplier != 2) {
+            throw new DomainException("O tipo Não Paletizado deve manter multiplicador 2.");
+        }
+        if (capacityMultiplier < 1 || capacityMultiplier > 100) {
+            throw new DomainException("Multiplicador de capacidade deve estar entre 1 e 100.");
+        }
+    }
+
+    public boolean mandatory() {
+        return code != PalletizationCode.OUTRO;
     }
 }

@@ -29,4 +29,15 @@ public class JpaTimeSlotRepositoryAdapter implements TimeSlotRepository {
     public Optional<TimeSlot> findById(Long id) {
         return repository.findById(id).map(TimeSlotPersistenceMapper::toDomain);
     }
+
+    @Override
+    public TimeSlot save(TimeSlot timeSlot) {
+        return TimeSlotPersistenceMapper.toDomain(
+                repository.save(TimeSlotPersistenceMapper.toEntity(timeSlot)));
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        repository.deleteById(id);
+    }
 }

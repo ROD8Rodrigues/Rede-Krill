@@ -17,7 +17,9 @@ public final class UserPersistenceMapper {
                 entity.getRole(),
                 entity.isActive(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.isMustChangePassword(),
+                entity.getVersion()
         );
     }
 
@@ -29,6 +31,8 @@ public final class UserPersistenceMapper {
         entity.setPasswordHash(user.passwordHash());
         entity.setRole(user.role());
         entity.setActive(user.active());
+        entity.setMustChangePassword(user.mustChangePassword());
+        entity.setVersion(user.version());
         entity.setCreatedAt(user.createdAt());
         entity.setUpdatedAt(user.updatedAt());
         return entity;

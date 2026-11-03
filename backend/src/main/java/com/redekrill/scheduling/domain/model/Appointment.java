@@ -26,7 +26,8 @@ public record Appointment(
         Instant canceledAt,
         User createdBy,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        long version
 ) {
 
     private static final int SUPPLIER_NAME_MAX_LENGTH = 80;
@@ -70,6 +71,20 @@ public record Appointment(
         Objects.requireNonNull(updatedAt, "Data de atualização é obrigatória.");
     }
 
+    /**
+     * Construtor de compatibilidade para fixtures e testes legados.
+     */
+    public Appointment(Long id, Long orderId, String supplierName, String supplierEmail,
+                       String truckPlate, LocalDate date, TimeSlot timeSlot, TruckType truckType,
+                       PalletizationType palletizationType, int palletQuantity,
+                       int effectivePallets, String notes, AppointmentStatus status,
+                       User canceledBy, Instant canceledAt, User createdBy, Instant createdAt,
+                       Instant updatedAt) {
+        this(id, orderId, supplierName, supplierEmail, truckPlate, date, timeSlot, truckType,
+                palletizationType, palletQuantity, effectivePallets, notes, status, canceledBy,
+                canceledAt, createdBy, createdAt, updatedAt, 0L);
+    }
+
     public static Appointment create(
             Long orderId,
             String supplierName,
@@ -103,7 +118,8 @@ public record Appointment(
                 null,
                 createdBy,
                 now,
-                now
+                now,
+                0L
         );
     }
 
@@ -111,7 +127,7 @@ public record Appointment(
         return new Appointment(
                 newId, orderId, supplierName, supplierEmail, truckPlate, date, timeSlot,
                 truckType, palletizationType, palletQuantity, effectivePallets, notes, status,
-                canceledBy, canceledAt, createdBy, createdAt, updatedAt
+                canceledBy, canceledAt, createdBy, createdAt, updatedAt, version
         );
     }
 
@@ -150,7 +166,8 @@ public record Appointment(
                 canceledAt,
                 createdBy,
                 createdAt,
-                now
+                now,
+                version
         );
     }
 
@@ -163,7 +180,7 @@ public record Appointment(
         return new Appointment(
                 id, orderId, supplierName, supplierEmail, truckPlate, date, timeSlot,
                 truckType, palletizationType, palletQuantity, effectivePallets, notes,
-                AppointmentStatus.CANCELED, actor, now, createdBy, createdAt, now
+                AppointmentStatus.CANCELED, actor, now, createdBy, createdAt, now, version
         );
     }
 

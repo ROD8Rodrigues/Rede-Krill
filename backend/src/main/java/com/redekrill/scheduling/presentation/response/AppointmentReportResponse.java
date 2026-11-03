@@ -9,6 +9,9 @@ public record AppointmentReportResponse(
         int totalAppointments,
         long totalPallets,
         long totalEffectivePallets,
+        int page,
+        int size,
+        int totalPages,
         List<AppointmentResponse> appointments
 ) {
 

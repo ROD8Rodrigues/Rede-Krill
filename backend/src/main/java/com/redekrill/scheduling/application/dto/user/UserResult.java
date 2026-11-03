@@ -11,6 +11,7 @@ public record UserResult(
         String email,
         Role role,
         boolean active,
+        boolean mustChangePassword,
         Instant createdAt
 ) {
 
@@ -21,6 +22,7 @@ public record UserResult(
                 user.email(),
                 user.role(),
                 user.active(),
+                user.mustChangePassword(),
                 user.createdAt()
         );
     }

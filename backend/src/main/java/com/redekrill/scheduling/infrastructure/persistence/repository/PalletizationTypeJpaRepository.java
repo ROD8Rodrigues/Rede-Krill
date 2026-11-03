@@ -12,4 +12,8 @@ public interface PalletizationTypeJpaRepository extends JpaRepository<Palletizat
     List<PalletizationTypeJpaEntity> findAllByOrderByIdAsc();
 
     Optional<PalletizationTypeJpaEntity> findByCode(PalletizationCode code);
+
+    boolean existsByNameIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 }

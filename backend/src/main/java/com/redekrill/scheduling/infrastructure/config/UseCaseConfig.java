@@ -1,10 +1,13 @@
 package com.redekrill.scheduling.infrastructure.config;
 
-import com.redekrill.scheduling.application.port.EmailNotifier;
 import com.redekrill.scheduling.application.port.PasswordHasher;
+import com.redekrill.scheduling.application.port.RefreshTokenGenerator;
 import com.redekrill.scheduling.application.port.TokenIssuer;
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.AuthSessionService;
+import com.redekrill.scheduling.application.service.EmailOutboxService;
+import com.redekrill.scheduling.application.service.LoginAttemptService;
 import com.redekrill.scheduling.application.usecase.appointment.CancelAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.CreateAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.GetAppointmentReportUseCase;
@@ -13,11 +16,18 @@ import com.redekrill.scheduling.application.usecase.appointment.GetCapacityOverv
 import com.redekrill.scheduling.application.usecase.appointment.ListAppointmentsUseCase;
 import com.redekrill.scheduling.application.usecase.appointment.UpdateAppointmentUseCase;
 import com.redekrill.scheduling.application.usecase.audit.ListAuditLogsUseCase;
+import com.redekrill.scheduling.application.usecase.auth.ChangePasswordUseCase;
 import com.redekrill.scheduling.application.usecase.auth.GetCurrentUserUseCase;
 import com.redekrill.scheduling.application.usecase.auth.LoginUseCase;
 import com.redekrill.scheduling.application.usecase.auth.LogoutUseCase;
+import com.redekrill.scheduling.application.usecase.reference.CreatePalletizationTypeUseCase;
+import com.redekrill.scheduling.application.usecase.reference.CreateTimeSlotUseCase;
+import com.redekrill.scheduling.application.usecase.reference.DeletePalletizationTypeUseCase;
+import com.redekrill.scheduling.application.usecase.reference.DeleteTimeSlotUseCase;
 import com.redekrill.scheduling.application.usecase.reference.ListPalletizationTypesUseCase;
 import com.redekrill.scheduling.application.usecase.reference.ListTimeSlotsUseCase;
+import com.redekrill.scheduling.application.usecase.reference.UpdatePalletizationTypeUseCase;
+import com.redekrill.scheduling.application.usecase.reference.UpdateTimeSlotUseCase;
 import com.redekrill.scheduling.application.usecase.trucktype.CreateTruckTypeUseCase;
 import com.redekrill.scheduling.application.usecase.trucktype.DeleteTruckTypeUseCase;
 import com.redekrill.scheduling.application.usecase.trucktype.ListTruckTypesUseCase;
@@ -28,10 +38,14 @@ import com.redekrill.scheduling.application.usecase.user.UpdateUserUseCase;
 import com.redekrill.scheduling.domain.policy.CapacityPolicy;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.domain.repository.AuditLogRepository;
+import com.redekrill.scheduling.domain.repository.AuthSessionRepository;
+import com.redekrill.scheduling.domain.repository.EmailOutboxRepository;
 import com.redekrill.scheduling.domain.repository.PalletizationTypeRepository;
 import com.redekrill.scheduling.domain.repository.TimeSlotRepository;
 import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 import com.redekrill.scheduling.domain.repository.UserRepository;
+import com.redekrill.scheduling.infrastructure.config.properties.AuthProperties;
+import com.redekrill.scheduling.infrastructure.config.properties.SecurityProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -51,14 +65,64 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public LoginUseCase loginUseCase(UserRepository userRepository, PasswordHasher passwordHasher,
-                                     TokenIssuer tokenIssuer, AuditService auditService) {
-        return new LoginUseCase(userRepository, passwordHasher, tokenIssuer, auditService);
+    public LoginAttemptService loginAttemptService(Clock clock, SecurityProperties properties) {
+        return new LoginAttemptService(
+                clock,
+                properties.loginMaxAttemptsPerAccount(),
+                properties.loginMaxAttemptsPerIp(),
+                properties.loginWindow(),
+                properties.loginLockout()
+        );
+    }
+
+    @Bean
+    public AuthSessionService authSessionService(AuthSessionRepository authSessionRepository,
+                                                 UserRepository userRepository,
+                                                 TokenIssuer tokenIssuer,
+                                                 RefreshTokenGenerator refreshTokenGenerator,
+                                                 TransactionRunner transactionRunner,
+                                                 Clock clock,
+                                                 AuthProperties authProperties) {
+        return new AuthSessionService(
+                authSessionRepository,
+                userRepository,
+                tokenIssuer,
+                refreshTokenGenerator,
+                transactionRunner,
+                clock,
+                authProperties.refreshExpiration()
+        );
+    }
+
+    @Bean
+    public EmailOutboxService emailOutboxService(EmailOutboxRepository repository, Clock clock) {
+        return new EmailOutboxService(repository, clock);
+    }
+
+    @Bean
+    public LoginUseCase loginUseCase(UserRepository userRepository,
+                                     PasswordHasher passwordHasher,
+                                     AuditService auditService,
+                                     LoginAttemptService loginAttemptService,
+                                     AuthSessionService authSessionService) {
+        return new LoginUseCase(userRepository, passwordHasher, auditService,
+                loginAttemptService, authSessionService);
     }
 
     @Bean
     public LogoutUseCase logoutUseCase(AuditService auditService) {
         return new LogoutUseCase(auditService);
+    }
+
+    @Bean
+    public ChangePasswordUseCase changePasswordUseCase(UserRepository userRepository,
+                                                       PasswordHasher passwordHasher,
+                                                       AuthSessionService authSessionService,
+                                                       AuditService auditService,
+                                                       TransactionRunner transactionRunner,
+                                                       Clock clock) {
+        return new ChangePasswordUseCase(userRepository, passwordHasher, authSessionService,
+                auditService, transactionRunner, clock);
     }
 
     @Bean
@@ -81,9 +145,11 @@ public class UseCaseConfig {
                                                PasswordHasher passwordHasher,
                                                AuditService auditService,
                                                TransactionRunner transactionRunner,
+                                               AuthSessionService authSessionService,
                                                Clock clock) {
         return new UpdateUserUseCase(
-                userRepository, passwordHasher, auditService, transactionRunner, clock);
+                userRepository, passwordHasher, auditService, transactionRunner,
+                authSessionService, clock);
     }
 
     @Bean
@@ -135,6 +201,55 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public CreateTimeSlotUseCase createTimeSlotUseCase(TimeSlotRepository timeSlotRepository,
+                                                       AuditService auditService,
+                                                       TransactionRunner transactionRunner) {
+        return new CreateTimeSlotUseCase(timeSlotRepository, auditService, transactionRunner);
+    }
+
+    @Bean
+    public UpdateTimeSlotUseCase updateTimeSlotUseCase(TimeSlotRepository timeSlotRepository,
+                                                       AuditService auditService,
+                                                       TransactionRunner transactionRunner) {
+        return new UpdateTimeSlotUseCase(timeSlotRepository, auditService, transactionRunner);
+    }
+
+    @Bean
+    public DeleteTimeSlotUseCase deleteTimeSlotUseCase(TimeSlotRepository timeSlotRepository,
+                                                       AppointmentRepository appointmentRepository,
+                                                       AuditService auditService,
+                                                       TransactionRunner transactionRunner) {
+        return new DeleteTimeSlotUseCase(
+                timeSlotRepository, appointmentRepository, auditService, transactionRunner);
+    }
+
+    @Bean
+    public CreatePalletizationTypeUseCase createPalletizationTypeUseCase(
+            PalletizationTypeRepository repository,
+            AuditService auditService,
+            TransactionRunner transactionRunner) {
+        return new CreatePalletizationTypeUseCase(repository, auditService, transactionRunner);
+    }
+
+    @Bean
+    public UpdatePalletizationTypeUseCase updatePalletizationTypeUseCase(
+            PalletizationTypeRepository repository,
+            AuditService auditService,
+            TransactionRunner transactionRunner) {
+        return new UpdatePalletizationTypeUseCase(repository, auditService, transactionRunner);
+    }
+
+    @Bean
+    public DeletePalletizationTypeUseCase deletePalletizationTypeUseCase(
+            PalletizationTypeRepository repository,
+            AppointmentRepository appointmentRepository,
+            AuditService auditService,
+            TransactionRunner transactionRunner) {
+        return new DeletePalletizationTypeUseCase(
+                repository, appointmentRepository, auditService, transactionRunner);
+    }
+
+    @Bean
     public CreateAppointmentUseCase createAppointmentUseCase(
             AppointmentRepository appointmentRepository,
             TimeSlotRepository timeSlotRepository,
@@ -143,7 +258,7 @@ public class UseCaseConfig {
             UserRepository userRepository,
             CapacityPolicy capacityPolicy,
             AuditService auditService,
-            EmailNotifier emailNotifier,
+            EmailOutboxService emailOutboxService,
             TransactionRunner transactionRunner,
             Clock clock) {
         return new CreateAppointmentUseCase(
@@ -154,7 +269,7 @@ public class UseCaseConfig {
                 userRepository,
                 capacityPolicy,
                 auditService,
-                emailNotifier,
+                emailOutboxService,
                 transactionRunner,
                 clock
         );

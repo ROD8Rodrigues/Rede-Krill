@@ -5,6 +5,7 @@ import com.redekrill.scheduling.application.dto.user.UserResult;
 import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.AuthSessionService;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
@@ -25,15 +26,17 @@ public class UpdateUserUseCase {
     private final PasswordHasher passwordHasher;
     private final AuditService auditService;
     private final TransactionRunner transactionRunner;
+    private final AuthSessionService authSessionService;
     private final Clock clock;
 
     public UpdateUserUseCase(UserRepository userRepository, PasswordHasher passwordHasher,
                              AuditService auditService, TransactionRunner transactionRunner,
-                             Clock clock) {
+                             AuthSessionService authSessionService, Clock clock) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.auditService = auditService;
         this.transactionRunner = transactionRunner;
+        this.authSessionService = authSessionService;
         this.clock = clock;
     }
 
@@ -55,22 +58,24 @@ public class UpdateUserUseCase {
             throw new ConflictException("Já existe um usuário com o e-mail informado.");
         }
 
-        String passwordHash = existing.passwordHash();
-        if (command.password() != null && !command.password().isBlank()) {
+        boolean passwordChanged = command.password() != null && !command.password().isBlank();
+        User updated;
+        if (passwordChanged) {
             if (command.password().length() < MIN_PASSWORD_LENGTH) {
                 throw new DomainException("Senha deve ter pelo menos " + MIN_PASSWORD_LENGTH + " caracteres.");
             }
-            passwordHash = passwordHasher.hash(command.password());
+            updated = existing.resetPassword(
+                    passwordHasher.hash(command.password()), true, Instant.now(clock));
+        } else {
+            updated = existing.update(
+                    command.name(),
+                    email,
+                    command.role(),
+                    command.active(),
+                    existing.passwordHash(),
+                    Instant.now(clock)
+            );
         }
-
-        User updated = existing.update(
-                command.name(),
-                email,
-                command.role(),
-                command.active(),
-                passwordHash,
-                Instant.now(clock)
-        );
 
         User saved = transactionRunner.execute(() -> {
             User result = userRepository.save(updated);
@@ -84,6 +89,9 @@ public class UpdateUserUseCase {
             return result;
         });
 
+        if (!saved.active() || passwordChanged) {
+            authSessionService.revokeAllForUser(saved.id());
+        }
         return UserResult.from(saved);
     }
 

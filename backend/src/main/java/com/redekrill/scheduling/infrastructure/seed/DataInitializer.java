@@ -9,52 +9,77 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 
 @Component
 public class DataInitializer implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
-    private static final String DEFAULT_PASSWORD = "Admin@12345";
+    private static final List<String> KNOWN_PASSWORDS = List.of(
+            "admin@12345", "redekrill", "password", "changeme", "secret"
+    );
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final SeedProperties seedProperties;
     private final Clock clock;
+    private final Environment environment;
 
     public DataInitializer(UserRepository userRepository, PasswordHasher passwordHasher,
-                           SeedProperties seedProperties, Clock clock) {
+                           SeedProperties seedProperties, Clock clock, Environment environment) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.seedProperties = seedProperties;
         this.clock = clock;
+        this.environment = environment;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        String email = seedProperties.adminEmail().trim().toLowerCase(Locale.ROOT);
+        if (!seedProperties.enabled()) {
+            log.info("Seed de administrador desabilitado (SEED_ADMIN_ENABLED=false).");
+            return;
+        }
 
+        String email = seedProperties.adminEmail().trim().toLowerCase(Locale.ROOT);
         if (userRepository.findByEmail(email).isPresent()) {
             log.info("Usuário administrador inicial já existe: {}", email);
             return;
         }
 
-        User admin = User.create(
+        String password = seedProperties.adminPassword();
+        if (password == null || password.isBlank()) {
+            if (environment.matchesProfiles("prod")) {
+                throw new IllegalStateException(
+                        "SEED_ADMIN_PASSWORD é obrigatório quando o seed está habilitado em produção.");
+            }
+            log.warn("Seed de administrador ignorado: SEED_ADMIN_PASSWORD não configurado. "
+                    + "Defina a variável para criar a conta inicial.");
+            return;
+        }
+        if (password.length() < 12 || KNOWN_PASSWORDS.contains(password.toLowerCase(Locale.ROOT))) {
+            throw new IllegalStateException(
+                    "SEED_ADMIN_PASSWORD deve ter pelo menos 12 caracteres e não pode ser "
+                            + "uma senha padrão conhecida. Nenhuma senha foi registrada em log.");
+        }
+
+        User admin = User.createInitial(
                 seedProperties.adminName(),
                 email,
-                passwordHasher.hash(seedProperties.adminPassword()),
+                passwordHasher.hash(password),
                 Role.ADMIN,
+                seedProperties.requirePasswordChange(),
                 Instant.now(clock)
         );
         userRepository.save(admin);
 
-        log.info("Usuário administrador inicial criado: {}", email);
-        if (DEFAULT_PASSWORD.equals(seedProperties.adminPassword())) {
-            log.warn("A senha padrão do administrador está em uso. Altere SEED_ADMIN_PASSWORD em produção.");
-        }
+        log.info("Usuário administrador inicial criado: {}. Troca de senha obrigatória: {}.",
+                email, seedProperties.requirePasswordChange());
     }
 }

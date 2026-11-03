@@ -4,11 +4,15 @@ import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
-import com.redekrill.scheduling.presentation.response.ApiError;
+import com.redekrill.scheduling.domain.exception.TooManyRequestsException;
+import com.redekrill.scheduling.application.dto.error.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -123,6 +127,41 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleConflict(
             ConflictException exception, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, exception.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiError> handleTooManyRequests(
+            TooManyRequestsException exception, HttpServletRequest request) {
+        ApiError error = new ApiError(
+                Instant.now(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI(),
+                null,
+                "RATE_LIMITED"
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
+                .body(error);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(
+            DataIntegrityViolationException exception, HttpServletRequest request) {
+        log.warn("Violação de integridade em {}: {}", request.getRequestURI(),
+                exception.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT,
+                "O registro conflita com dados existentes. Verifique os campos únicos.",
+                request, null);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleOptimisticLock(
+            OptimisticLockingFailureException exception, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT,
+                "O registro foi alterado por outro usuário. Recarregue e tente novamente.",
+                request, null);
     }
 
     @ExceptionHandler(DomainException.class)

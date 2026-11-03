@@ -23,4 +23,8 @@ public class AuditService {
         AuditLog auditLog = AuditLog.create(actorEmail, action, entityName, id, details, Instant.now(clock));
         auditLogRepository.save(auditLog);
     }
+
+    public void record(String actorEmail, AuditAction action, String details) {
+        record(actorEmail, action, "Security", null, details);
+    }
 }

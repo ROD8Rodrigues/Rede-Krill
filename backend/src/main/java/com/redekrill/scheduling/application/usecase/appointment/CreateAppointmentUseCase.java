@@ -4,9 +4,9 @@ import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandRe
 import com.redekrill.scheduling.application.dto.appointment.AppointmentResult;
 import com.redekrill.scheduling.application.dto.appointment.CapacityResult;
 import com.redekrill.scheduling.application.dto.appointment.CreateAppointmentCommand;
-import com.redekrill.scheduling.application.port.EmailNotifier;
 import com.redekrill.scheduling.application.port.TransactionRunner;
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.EmailOutboxService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
@@ -24,17 +24,11 @@ import com.redekrill.scheduling.domain.repository.PalletizationTypeRepository;
 import com.redekrill.scheduling.domain.repository.TimeSlotRepository;
 import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 import com.redekrill.scheduling.domain.repository.UserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 public class CreateAppointmentUseCase {
-
-    private static final Logger log = LoggerFactory.getLogger(CreateAppointmentUseCase.class);
 
     private final AppointmentRepository appointmentRepository;
     private final TimeSlotRepository timeSlotRepository;
@@ -43,7 +37,7 @@ public class CreateAppointmentUseCase {
     private final UserRepository userRepository;
     private final CapacityPolicy capacityPolicy;
     private final AuditService auditService;
-    private final EmailNotifier emailNotifier;
+    private final EmailOutboxService emailOutboxService;
     private final TransactionRunner transactionRunner;
     private final Clock clock;
 
@@ -54,7 +48,7 @@ public class CreateAppointmentUseCase {
                                     UserRepository userRepository,
                                     CapacityPolicy capacityPolicy,
                                     AuditService auditService,
-                                    EmailNotifier emailNotifier,
+                                    EmailOutboxService emailOutboxService,
                                     TransactionRunner transactionRunner,
                                     Clock clock) {
         this.appointmentRepository = appointmentRepository;
@@ -64,7 +58,7 @@ public class CreateAppointmentUseCase {
         this.userRepository = userRepository;
         this.capacityPolicy = capacityPolicy;
         this.auditService = auditService;
-        this.emailNotifier = emailNotifier;
+        this.emailOutboxService = emailOutboxService;
         this.transactionRunner = transactionRunner;
         this.clock = clock;
     }
@@ -123,37 +117,18 @@ public class CreateAppointmentUseCase {
                             .formatted(saved.orderId(), saved.supplierName(), saved.date(),
                                     saved.timeSlot().label(), saved.dailyPallets(), saved.slotPallets())
             );
+            emailOutboxService.enqueue(saved, assessment.warnings());
 
             return new PreparedAppointment(saved, assessment);
         });
 
-        boolean emailSent = sendConfirmationEmail(prepared);
-        List<String> warnings = new ArrayList<>(prepared.assessment().warnings());
-        if (!emailSent) {
-            warnings.add("O agendamento foi salvo, mas não foi possível enviar o e-mail de "
-                    + "confirmação. O fornecedor não foi notificado.");
-        }
-
         return new AppointmentCommandResult(
                 AppointmentResult.from(prepared.appointment()),
-                warnings,
+                prepared.assessment().warnings(),
                 CapacityResult.from(prepared.assessment()),
-                emailSent
+                true,
+                false
         );
-    }
-
-    private boolean sendConfirmationEmail(PreparedAppointment prepared) {
-        try {
-            emailNotifier.sendAppointmentConfirmation(
-                    prepared.appointment(), prepared.assessment().warnings());
-            return true;
-        } catch (RuntimeException exception) {
-            log.warn("Falha ao enviar e-mail de confirmação do agendamento {} para {}.",
-                    prepared.appointment().id(),
-                    prepared.appointment().supplierEmail(),
-                    exception);
-            return false;
-        }
     }
 
     private void validate(CreateAppointmentCommand command) {

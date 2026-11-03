@@ -16,4 +16,13 @@ public final class PalletizationTypePersistenceMapper {
                 entity.getCapacityMultiplier()
         );
     }
+
+    public static PalletizationTypeJpaEntity toEntity(PalletizationType type) {
+        PalletizationTypeJpaEntity entity = new PalletizationTypeJpaEntity();
+        entity.setId(type.id());
+        entity.setCode(type.code());
+        entity.setName(type.name());
+        entity.setCapacityMultiplier(type.capacityMultiplier());
+        return entity;
+    }
 }

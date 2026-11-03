@@ -55,6 +55,7 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
         entity.setCreatedBy(entityManager.getReference(UserJpaEntity.class, appointment.createdBy().id()));
         entity.setCreatedAt(appointment.createdAt());
         entity.setUpdatedAt(appointment.updatedAt());
+        entity.setVersion(appointment.version());
 
         AppointmentJpaEntity saved = repository.save(entity);
         return appointment.withId(saved.getId());
@@ -77,6 +78,35 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
                 result.getTotalElements(),
                 result.getTotalPages()
         );
+    }
+
+    @Override
+    public PageResult<Appointment> searchReport(LocalDate startDate, LocalDate endDate,
+                                                int page, int size) {
+        Page<AppointmentJpaEntity> result = repository.searchReport(
+                startDate, endDate, PageRequest.of(page, size));
+        return PageResult.of(
+                result.getContent().stream().map(AppointmentPersistenceMapper::toDomain).toList(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        );
+    }
+
+    @Override
+    public long countByPeriod(LocalDate startDate, LocalDate endDate) {
+        return repository.countByPeriod(startDate, endDate);
+    }
+
+    @Override
+    public long sumPalletsByPeriod(LocalDate startDate, LocalDate endDate) {
+        return repository.sumPalletsByPeriod(startDate, endDate);
+    }
+
+    @Override
+    public long sumEffectivePalletsByPeriod(LocalDate startDate, LocalDate endDate) {
+        return repository.sumEffectivePalletsByPeriod(startDate, endDate);
     }
 
     @Override
@@ -121,6 +151,16 @@ public class JpaAppointmentRepositoryAdapter implements AppointmentRepository {
     @Override
     public boolean existsByTruckTypeId(Long truckTypeId) {
         return repository.existsByTruckTypeId(truckTypeId);
+    }
+
+    @Override
+    public boolean existsByTimeSlotId(Long timeSlotId) {
+        return repository.existsByTimeSlotId(timeSlotId);
+    }
+
+    @Override
+    public boolean existsByPalletizationTypeId(Long palletizationTypeId) {
+        return repository.existsByPalletizationTypeId(palletizationTypeId);
     }
 
     private long nullSafe(Long value) {

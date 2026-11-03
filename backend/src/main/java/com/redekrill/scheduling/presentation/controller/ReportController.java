@@ -31,9 +31,12 @@ public class ReportController {
     @Operation(summary = "Relatório de agendamentos por período")
     public AppointmentReportResponse appointments(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        AppointmentReportResult result = getAppointmentReportUseCase.execute(startDate, endDate);
+        AppointmentReportResult result =
+                getAppointmentReportUseCase.execute(startDate, endDate, page, size);
         return WebMapper.toResponse(result);
     }
 }

@@ -35,4 +35,25 @@ public class JpaPalletizationTypeRepositoryAdapter implements PalletizationTypeR
     public Optional<PalletizationType> findByCode(PalletizationCode code) {
         return repository.findByCode(code).map(PalletizationTypePersistenceMapper::toDomain);
     }
+
+    @Override
+    public PalletizationType save(PalletizationType type) {
+        return PalletizationTypePersistenceMapper.toDomain(
+                repository.save(PalletizationTypePersistenceMapper.toEntity(type)));
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        repository.deleteById(id);
+    }
+
+    @Override
+    public boolean existsByNameIgnoreCase(String name) {
+        return repository.existsByNameIgnoreCase(name);
+    }
+
+    @Override
+    public boolean existsByNameIgnoreCaseAndIdNot(String name, Long id) {
+        return repository.existsByNameIgnoreCaseAndIdNot(name, id);
+    }
 }

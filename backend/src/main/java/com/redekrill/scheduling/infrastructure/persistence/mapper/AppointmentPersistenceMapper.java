@@ -30,7 +30,8 @@ public final class AppointmentPersistenceMapper {
                 entity.getCanceledAt(),
                 UserPersistenceMapper.toDomain(entity.getCreatedBy()),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getVersion()
         );
     }
 }

@@ -13,4 +13,12 @@ public interface PalletizationTypeRepository {
     Optional<PalletizationType> findById(Long id);
 
     Optional<PalletizationType> findByCode(PalletizationCode code);
+
+    PalletizationType save(PalletizationType type);
+
+    void deleteById(Long id);
+
+    boolean existsByNameIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 }

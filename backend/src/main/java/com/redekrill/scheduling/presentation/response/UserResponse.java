@@ -10,6 +10,7 @@ public record UserResponse(
         String email,
         Role role,
         boolean active,
+        boolean mustChangePassword,
         Instant createdAt
 ) {
 }

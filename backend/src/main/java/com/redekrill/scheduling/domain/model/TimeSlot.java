@@ -26,6 +26,11 @@ public record TimeSlot(
         }
     }
 
+    public boolean overlaps(TimeSlot other) {
+        Objects.requireNonNull(other, "Faixa horária para comparação é obrigatória.");
+        return startTime.isBefore(other.endTime) && other.startTime.isBefore(endTime);
+    }
+
     public String label() {
         return startTime.format(TIME_FORMAT) + " - " + endTime.format(TIME_FORMAT);
     }

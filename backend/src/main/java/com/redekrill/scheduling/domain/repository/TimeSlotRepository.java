@@ -10,4 +10,8 @@ public interface TimeSlotRepository {
     List<TimeSlot> findAll();
 
     Optional<TimeSlot> findById(Long id);
+
+    TimeSlot save(TimeSlot timeSlot);
+
+    void deleteById(Long id);
 }

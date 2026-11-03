@@ -49,11 +49,12 @@ public class CreateUserUseCase {
             throw new ConflictException("Já existe um usuário com o e-mail informado.");
         }
 
-        User user = User.create(
+        User user = User.createInitial(
                 command.name(),
                 email,
                 passwordHasher.hash(command.password()),
                 command.role(),
+                true,
                 Instant.now(clock)
         );
 
