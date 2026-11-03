@@ -17,7 +17,9 @@
       </div>
 
       <div class="relative max-w-lg">
-        <p class="mb-4 inline-flex items-center gap-2 rounded-full border border-krill-500/40 bg-krill-500/10 px-3 py-1 text-xs font-semibold text-krill-200">
+        <p
+          class="mb-4 inline-flex items-center gap-2 rounded-full border border-krill-500/40 bg-krill-500/10 px-3 py-1 text-xs font-semibold text-krill-200"
+        >
           <i class="pi pi-truck" />
           Logística inteligente
         </p>
@@ -25,8 +27,8 @@
           Organize a chegada dos caminhões com uma visão clara da operação.
         </h1>
         <p class="mt-5 text-base leading-relaxed text-slate-300">
-          Agende fornecedores por faixa horária, acompanhe a capacidade diária de pallets e
-          mantenha a operação da Rede Krill sob controle.
+          Agende fornecedores por faixa horária, acompanhe a capacidade diária de pallets e mantenha
+          a operação da Rede Krill sob controle.
         </p>
       </div>
 
@@ -45,7 +47,9 @@
     <section class="flex items-center justify-center bg-slate-100 px-4 py-12 sm:px-8">
       <div class="w-full max-w-md">
         <div class="mb-8 flex items-center gap-3 lg:hidden">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-500 font-bold text-white">
+          <div
+            class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-500 font-bold text-white"
+          >
             RK
           </div>
           <div>
@@ -61,6 +65,15 @@
           </p>
 
           <form class="mt-8 space-y-5" @submit.prevent="submit">
+            <div
+              v-if="route.query.passwordChanged"
+              class="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700"
+              role="status"
+            >
+              <i class="pi pi-check-circle mt-0.5" />
+              <span>Senha alterada com sucesso. Entre novamente com a nova senha.</span>
+            </div>
+
             <div>
               <label for="email" class="mb-2 block text-sm font-medium text-slate-700">
                 E-mail
@@ -85,7 +98,7 @@
                 Senha
               </label>
               <Password
-                id="password"
+                inputId="password"
                 v-model="form.password"
                 :feedback="false"
                 toggle-mask
@@ -135,7 +148,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore, safeRedirect } from '../stores/auth'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -154,9 +167,12 @@ async function submit() {
   fieldErrors.value = {}
 
   try {
-    await auth.login({ email: form.email, password: form.password })
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
-    await router.push(redirect)
+    const user = await auth.login({ email: form.email, password: form.password })
+    if (user?.mustChangePassword) {
+      await router.push({ name: 'change-password' })
+      return
+    }
+    await router.push(safeRedirect(route.query.redirect))
   } catch (error) {
     const data = error.response?.data
     fieldErrors.value = data?.fieldErrors || {}

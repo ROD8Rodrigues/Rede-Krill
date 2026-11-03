@@ -5,8 +5,8 @@
       <div>
         <h2 class="text-2xl font-bold tracking-tight text-slate-900">Gestão de Usuários</h2>
         <p class="text-sm text-slate-500">
-          Controle de acessos, perfis operacionais e credenciais. A desativação equivale à
-          exclusão lógica e preserva o histórico.
+          Controle de acessos, perfis operacionais e credenciais. A desativação equivale à exclusão
+          lógica e preserva o histórico.
         </p>
       </div>
       <div>
@@ -50,7 +50,9 @@
         <Column header="Usuário" style="min-width: 240px">
           <template #body="{ data }">
             <div class="flex items-center gap-3">
-              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-krill-100 font-bold text-krill-700 text-xs">
+              <div
+                class="flex h-9 w-9 items-center justify-center rounded-full bg-krill-100 font-bold text-krill-700 text-xs"
+              >
                 {{ getInitials(data.name) }}
               </div>
               <div class="min-w-0">
@@ -71,18 +73,8 @@
 
         <Column header="Perfil" style="min-width: 130px">
           <template #body="{ data }">
-            <Tag
-              v-if="data.role === 'ADMIN'"
-              severity="info"
-              value="ADMIN"
-              icon="pi pi-shield"
-            />
-            <Tag
-              v-else
-              severity="secondary"
-              value="USER"
-              icon="pi pi-user"
-            />
+            <Tag v-if="data.role === 'ADMIN'" severity="info" value="ADMIN" icon="pi pi-shield" />
+            <Tag v-else severity="secondary" value="USER" icon="pi pi-user" />
           </template>
         </Column>
 
@@ -233,7 +225,9 @@
             type="password"
             minlength="8"
             maxlength="72"
-            :placeholder="editingId ? 'Preencha apenas se for alterar a senha' : 'Mínimo de 8 caracteres'"
+            :placeholder="
+              editingId ? 'Preencha apenas se for alterar a senha' : 'Mínimo de 8 caracteres'
+            "
             autocomplete="new-password"
             class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1"
             :class="fieldClass('password')"

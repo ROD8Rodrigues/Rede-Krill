@@ -63,7 +63,10 @@
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <label class="text-xs font-semibold uppercase tracking-wider text-slate-600" for="capacity-date">
+          <label
+            class="text-xs font-semibold uppercase tracking-wider text-slate-600"
+            for="capacity-date"
+          >
             Data
           </label>
           <input
@@ -89,8 +92,8 @@
         <div>
           <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
             <span>
-              Dia {{ formatDate(capacity.date) }}:
-              {{ capacity.dailyPallets }} de {{ capacity.dailyLimit }} pallets
+              Dia {{ formatDate(capacity.date) }}: {{ capacity.dailyPallets }} de
+              {{ capacity.dailyLimit }} pallets
             </span>
             <span :class="occupancyTextClass(capacity.dailyOccupancyPercentage)">
               {{ formatPercent(capacity.dailyOccupancyPercentage) }}
@@ -134,7 +137,11 @@
         </div>
       </div>
       <p v-else class="mt-4 text-xs text-slate-400">
-        {{ capacityLoading ? 'Carregando ocupação...' : 'Selecione uma data para consultar a ocupação.' }}
+        {{
+          capacityLoading
+            ? 'Carregando ocupação...'
+            : 'Selecione uma data para consultar a ocupação.'
+        }}
       </p>
     </div>
 
@@ -207,13 +214,17 @@
           <div class="py-12 text-center">
             <i class="pi pi-calendar-times text-4xl text-slate-300 mb-3" />
             <p class="text-base font-medium text-slate-700">Nenhum agendamento encontrado</p>
-            <p class="text-xs text-slate-400 mt-1">Tente ajustar o filtro de datas ou cadastre um novo agendamento.</p>
+            <p class="text-xs text-slate-400 mt-1">
+              Tente ajustar o filtro de datas ou cadastre um novo agendamento.
+            </p>
           </div>
         </template>
 
         <Column field="orderId" header="ID Pedido" sortable style="min-width: 120px">
           <template #body="{ data }">
-            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800">
+            <span
+              class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800"
+            >
               {{ data.orderId }}
             </span>
           </template>
@@ -227,7 +238,9 @@
 
         <Column header="Faixa Horária" style="min-width: 140px">
           <template #body="{ data }">
-            <span class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+            >
               <i class="pi pi-clock text-[10px] text-slate-500" />
               {{ data.timeSlot?.startTime }} às {{ data.timeSlot?.endTime }}
             </span>
@@ -249,7 +262,9 @@
 
         <Column field="truckPlate" header="Placa" style="min-width: 110px">
           <template #body="{ data }">
-            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold uppercase tracking-wider text-slate-800">
+            <span
+              class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold uppercase tracking-wider text-slate-800"
+            >
               {{ data.truckPlate }}
             </span>
           </template>
@@ -268,19 +283,19 @@
               severity="success"
               value="Paletizado"
             />
-            <Tag
-              v-else
-              severity="warn"
-              value="Não Paletizado (2x)"
-            />
+            <Tag v-else severity="warn" value="Não Paletizado (2x)" />
           </template>
         </Column>
 
         <Column header="Pallets (dia / faixa)" style="min-width: 150px">
           <template #body="{ data }">
             <div class="text-xs">
-              <p class="text-slate-500">Dia: <span class="font-semibold text-slate-800">{{ data.dailyPallets }}</span></p>
-              <p class="text-slate-700">Faixa: <span class="font-bold text-krill-700">{{ data.slotPallets }}</span></p>
+              <p class="text-slate-500">
+                Dia: <span class="font-semibold text-slate-800">{{ data.dailyPallets }}</span>
+              </p>
+              <p class="text-slate-700">
+                Faixa: <span class="font-bold text-krill-700">{{ data.slotPallets }}</span>
+              </p>
             </div>
           </template>
         </Column>
@@ -294,7 +309,10 @@
               icon="pi pi-ban"
             />
             <Tag v-else severity="success" value="Ativo" icon="pi pi-check" />
-            <p v-if="data.status === 'CANCELED' && data.canceledBy" class="mt-1 text-[11px] text-slate-400">
+            <p
+              v-if="data.status === 'CANCELED' && data.canceledBy"
+              class="mt-1 text-[11px] text-slate-400"
+            >
               por {{ data.canceledBy.name }}
             </p>
           </template>
@@ -354,7 +372,9 @@
               required
               class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
-            <p class="mt-1 text-[11px] text-slate-400">Identificador único do pedido, sem repetição.</p>
+            <p class="mt-1 text-[11px] text-slate-400">
+              Identificador único do pedido, sem repetição.
+            </p>
           </div>
 
           <!-- Data do Agendamento -->
@@ -478,9 +498,7 @@
 
           <!-- Observação -->
           <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
-              Observação
-            </label>
+            <label class="block text-xs font-semibold text-slate-700 mb-1"> Observação </label>
             <textarea
               v-model="form.notes"
               rows="3"
@@ -488,17 +506,20 @@
               placeholder="Informações adicionais sobre a entrega (opcional)"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
             />
-            <p class="mt-1 text-[11px] text-slate-400">
-              {{ form.notes.length }}/500 caracteres.
-            </p>
+            <p class="mt-1 text-[11px] text-slate-400">{{ form.notes.length }}/500 caracteres.</p>
           </div>
         </div>
 
         <!-- Card de Cálculo em Tempo Real de Pallets -->
         <div class="rounded-xl border border-krill-100 bg-krill-50/60 p-4">
-          <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-krill-800">
+          <div
+            class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-krill-800"
+          >
             <span>Impacto na capacidade</span>
-            <span v-if="selectedMultiplier > 1" class="rounded bg-amber-100 px-2 py-0.5 text-amber-800">
+            <span
+              v-if="selectedMultiplier > 1"
+              class="rounded bg-amber-100 px-2 py-0.5 text-amber-800"
+            >
               Multiplicador: {{ selectedMultiplier }}x na faixa
             </span>
             <span v-else class="text-slate-500">Multiplicador: 1x</span>
@@ -518,6 +539,61 @@
           <p v-if="selectedMultiplier > 1" class="mt-2 text-[11px] text-amber-700">
             * Cargas Não Paletizadas dobram o impacto somente na faixa horária.
           </p>
+
+          <div class="mt-3 border-t border-krill-100 pt-3">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Ocupação projetada para {{ formatDate(form.date) }}</span>
+              <span v-if="modalCapacityLoading" class="text-[11px] font-normal text-slate-400">
+                Calculando...
+              </span>
+            </div>
+            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div class="rounded-lg bg-white/70 px-3 py-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Dia (480 pallets)</span>
+                  <span :class="occupancyTextClass(projectedDailyPercentage)">
+                    {{ formatPercent(projectedDailyPercentage) }}
+                  </span>
+                </div>
+                <p class="mt-1 text-sm font-bold text-slate-900">
+                  {{ projectedDailyPallets }} / {{ capacityDailyLimit }}
+                </p>
+                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    class="h-full rounded-full"
+                    :class="occupancyBarClass(projectedDailyPercentage)"
+                    :style="{ width: barWidth(projectedDailyPercentage) }"
+                  />
+                </div>
+              </div>
+              <div class="rounded-lg bg-white/70 px-3 py-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Faixa selecionada (120 pallets)</span>
+                  <span :class="occupancyTextClass(projectedSlotPercentage)">
+                    {{ formatPercent(projectedSlotPercentage) }}
+                  </span>
+                </div>
+                <p class="mt-1 text-sm font-bold text-slate-900">
+                  {{ projectedSlotPallets }} / {{ capacitySlotLimit }}
+                </p>
+                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    class="h-full rounded-full"
+                    :class="occupancyBarClass(projectedSlotPercentage)"
+                    :style="{ width: barWidth(projectedSlotPercentage) }"
+                  />
+                </div>
+              </div>
+            </div>
+            <p
+              v-if="projectionExceeded"
+              class="mt-2 rounded bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800"
+            >
+              <i class="pi pi-exclamation-triangle mr-1 text-[10px]" />
+              A projeção ultrapassa um limite informativo. O salvamento não será bloqueado.
+            </p>
+          </div>
+
           <p class="mt-2 text-[11px] text-slate-500">
             Limites informativos: 480 pallets/dia e 120 pallets/faixa. O cadastro nunca é bloqueado.
           </p>
@@ -546,7 +622,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
@@ -558,6 +634,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useAuthStore } from '../stores/auth'
 import { appointmentService } from '../services/appointmentService'
 import { referenceService } from '../services/referenceService'
+import { projectCapacity } from '../utils/capacity'
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -572,6 +649,28 @@ const capacityWarnings = ref([])
 const capacityDate = ref(getTodayIso())
 const capacity = ref(null)
 const capacityLoading = ref(false)
+
+const modalCapacity = ref(null)
+const modalCapacityLoading = ref(false)
+const editingOriginal = ref(null)
+
+const projection = computed(() =>
+  projectCapacity({
+    capacity: modalCapacity.value,
+    editingOriginal: editingOriginal.value,
+    timeSlotId: form.timeSlotId,
+    palletQuantity: calculatedDailyPallets.value,
+    multiplier: selectedMultiplier.value
+  })
+)
+
+const capacityDailyLimit = computed(() => projection.value.dailyLimit)
+const capacitySlotLimit = computed(() => projection.value.slotLimit)
+const projectedDailyPallets = computed(() => projection.value.projectedDailyPallets)
+const projectedSlotPallets = computed(() => projection.value.projectedSlotPallets)
+const projectedDailyPercentage = computed(() => projection.value.dailyPercentage)
+const projectedSlotPercentage = computed(() => projection.value.slotPercentage)
+const projectionExceeded = computed(() => projection.value.exceeded)
 
 const appointments = ref([])
 const totalRecords = ref(0)
@@ -608,8 +707,8 @@ const selectedMultiplier = computed(() => selectedPalletization.value?.capacityM
 
 const calculatedDailyPallets = computed(() => Number(form.palletQuantity) || 0)
 
-const calculatedSlotPallets = computed(() =>
-  calculatedDailyPallets.value * selectedMultiplier.value
+const calculatedSlotPallets = computed(
+  () => calculatedDailyPallets.value * selectedMultiplier.value
 )
 
 function formatDate(isoDate) {
@@ -685,6 +784,31 @@ async function loadCapacity(date = capacityDate.value) {
   }
 }
 
+async function loadModalCapacity(date = form.date) {
+  if (!date) {
+    modalCapacity.value = null
+    return
+  }
+  modalCapacityLoading.value = true
+  try {
+    modalCapacity.value = await appointmentService.getCapacity(date)
+  } catch (error) {
+    console.error('Erro ao carregar ocupação do modal:', error)
+    modalCapacity.value = null
+  } finally {
+    modalCapacityLoading.value = false
+  }
+}
+
+watch(
+  () => form.date,
+  (date) => {
+    if (modalVisible.value) {
+      loadModalCapacity(date)
+    }
+  }
+)
+
 async function loadAppointments() {
   loading.value = true
   try {
@@ -731,6 +855,7 @@ function openCreateModal() {
   if (!auth.isAdmin) return
 
   editingId.value = null
+  editingOriginal.value = null
   form.orderId = null
   form.supplierName = ''
   form.supplierEmail = ''
@@ -742,12 +867,14 @@ function openCreateModal() {
   form.palletQuantity = 1
   form.notes = ''
   modalVisible.value = true
+  loadModalCapacity(form.date)
 }
 
 function openEditModal(appointment) {
   if (!auth.isAdmin || appointment.status === 'CANCELED') return
 
   editingId.value = appointment.id
+  editingOriginal.value = appointment
   form.orderId = appointment.orderId
   form.supplierName = appointment.supplierName
   form.supplierEmail = appointment.supplierEmail
@@ -759,6 +886,7 @@ function openEditModal(appointment) {
   form.palletQuantity = appointment.palletQuantity
   form.notes = appointment.notes || ''
   modalVisible.value = true
+  loadModalCapacity(form.date)
 }
 
 async function saveAppointment() {
@@ -800,10 +928,9 @@ async function saveAppointment() {
 
     if (result?.warnings && result.warnings.length > 0) {
       capacityWarnings.value = result.warnings
-      const emailFailed = result.emailSent === false
       toast.add({
         severity: 'warn',
-        summary: emailFailed ? 'Salvo sem envio de e-mail' : 'Salvo com avisos',
+        summary: 'Salvo com avisos',
         detail: result.warnings.join(' | '),
         life: 8000
       })
@@ -814,7 +941,9 @@ async function saveAppointment() {
         summary: 'Sucesso',
         detail: isEditing
           ? 'Agendamento atualizado com sucesso.'
-          : 'Agendamento cadastrado e e-mail de confirmação enviado.',
+          : result?.emailQueued
+            ? 'Agendamento cadastrado. O e-mail de confirmação foi colocado na fila de envio.'
+            : 'Agendamento cadastrado. Nenhum e-mail foi enfileirado.',
         life: 5000
       })
     }

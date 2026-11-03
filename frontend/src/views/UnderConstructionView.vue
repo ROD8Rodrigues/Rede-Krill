@@ -1,7 +1,9 @@
 <template>
   <div class="mx-auto max-w-3xl">
     <section class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-      <span class="inline-flex items-center gap-2 rounded-full bg-krill-50 px-3 py-1 text-xs font-semibold text-krill-700">
+      <span
+        class="inline-flex items-center gap-2 rounded-full bg-krill-50 px-3 py-1 text-xs font-semibold text-krill-700"
+      >
         <i class="pi pi-wrench" />
         Em construção
       </span>
@@ -10,7 +12,9 @@
       <p class="mt-3 text-sm leading-relaxed text-slate-500">{{ description }}</p>
 
       <div class="mt-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6">
-        <p class="text-sm font-semibold text-slate-700">O backend deste módulo já está disponível.</p>
+        <p class="text-sm font-semibold text-slate-700">
+          O backend deste módulo já está disponível.
+        </p>
         <p class="mt-1 text-sm text-slate-500">
           A interface será conectada aos endpoints na próxima etapa do desafio. Use o painel para
           navegar pelas demais áreas.

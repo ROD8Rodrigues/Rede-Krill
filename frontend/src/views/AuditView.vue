@@ -37,13 +37,17 @@
         <template #empty>
           <div class="py-12 text-center">
             <i class="pi pi-history text-4xl text-slate-300 mb-3" />
-            <p class="text-base font-medium text-slate-700">Nenhum registro de auditoria encontrado</p>
+            <p class="text-base font-medium text-slate-700">
+              Nenhum registro de auditoria encontrado
+            </p>
           </div>
         </template>
 
         <Column header="Data e Hora" style="min-width: 160px">
           <template #body="{ data }">
-            <span class="font-mono text-xs text-slate-600">{{ formatDateTime(data.createdAt) }}</span>
+            <span class="font-mono text-xs text-slate-600">{{
+              formatDateTime(data.createdAt)
+            }}</span>
           </template>
         </Column>
 
@@ -106,9 +110,13 @@
 
         <Column header="Entidade" style="min-width: 160px">
           <template #body="{ data }">
-            <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+            <span
+              class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700"
+            >
               {{ translateEntity(data.entityName) }}
-              <span v-if="data.entityId" class="text-slate-400 font-mono">#{{ data.entityId }}</span>
+              <span v-if="data.entityId" class="text-slate-400 font-mono"
+                >#{{ data.entityId }}</span
+              >
             </span>
           </template>
         </Column>

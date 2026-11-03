@@ -1,7 +1,11 @@
 <template>
   <div class="space-y-6">
-    <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-krill-700 p-6 text-white shadow-lg sm:p-8">
-      <p class="text-xs font-semibold uppercase tracking-widest text-krill-300">Painel operacional</p>
+    <section
+      class="overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-krill-700 p-6 text-white shadow-lg sm:p-8"
+    >
+      <p class="text-xs font-semibold uppercase tracking-widest text-krill-300">
+        Painel operacional
+      </p>
       <h2 class="mt-2 text-2xl font-bold sm:text-3xl">
         Bem-vindo, {{ auth.user?.name || 'usuário' }}.
       </h2>
@@ -75,7 +79,9 @@
                 {{ formatPercent(slot.occupancyPercentage) }}
               </span>
             </div>
-            <p class="mt-1 text-xs text-slate-500">{{ slot.pallets }} de {{ slot.limit }} pallets</p>
+            <p class="mt-1 text-xs text-slate-500">
+              {{ slot.pallets }} de {{ slot.limit }} pallets
+            </p>
             <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 class="h-full rounded-full transition-all"
@@ -87,7 +93,11 @@
         </div>
       </div>
       <p v-else class="mt-4 text-xs text-slate-400">
-        {{ capacityLoading ? 'Carregando ocupação...' : 'Não foi possível carregar a ocupação de hoje.' }}
+        {{
+          capacityLoading
+            ? 'Carregando ocupação...'
+            : 'Não foi possível carregar a ocupação de hoje.'
+        }}
       </p>
     </section>
 
@@ -99,10 +109,14 @@
         class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-krill-300 hover:shadow-md"
       >
         <div class="flex items-start justify-between">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-50 text-krill-600">
+          <div
+            class="flex h-11 w-11 items-center justify-center rounded-xl bg-krill-50 text-krill-600"
+          >
             <i :class="card.icon" class="text-lg" />
           </div>
-          <i class="pi pi-arrow-right text-xs text-slate-300 transition group-hover:text-krill-500" />
+          <i
+            class="pi pi-arrow-right text-xs text-slate-300 transition group-hover:text-krill-500"
+          />
         </div>
         <h3 class="mt-4 text-base font-semibold text-slate-900">{{ card.title }}</h3>
         <p class="mt-1 text-sm leading-relaxed text-slate-500">{{ card.description }}</p>
@@ -111,7 +125,9 @@
 
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+        <div
+          class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600"
+        >
           <i class="pi pi-info-circle" />
         </div>
         <div>
@@ -154,19 +170,22 @@ const cards = [
   {
     name: 'appointments',
     title: 'Agendamentos',
-    description: 'Consulte, crie, edite e cancele agendamentos por data, faixa horária e ID Pedido.',
+    description:
+      'Consulte, crie, edite e cancele agendamentos por data, faixa horária e ID Pedido.',
     icon: 'pi pi-calendar'
   },
   {
     name: 'reports',
     title: 'Relatórios',
-    description: 'Visualize o consolidado de agendamentos, pallets do dia e da faixa, com cancelados.',
+    description:
+      'Visualize o consolidado de agendamentos, pallets do dia e da faixa, com cancelados.',
     icon: 'pi pi-chart-bar'
   },
   {
     name: 'audit',
     title: 'Auditoria',
-    description: 'Acompanhe login, logout, acessos negados e operações. Disponível para administradores.',
+    description:
+      'Acompanhe login, logout, acessos negados e operações. Disponível para administradores.',
     icon: 'pi pi-history',
     adminOnly: true
   }

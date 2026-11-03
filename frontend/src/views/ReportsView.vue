@@ -41,13 +41,7 @@
             :loading="loading"
             @click="loadReport"
           />
-          <Button
-            label="Este Mês"
-            severity="secondary"
-            text
-            size="small"
-            @click="setThisMonth"
-          />
+          <Button label="Este Mês" severity="secondary" text size="small" @click="setThisMonth" />
           <Button
             label="Últimos 7 dias"
             severity="secondary"
@@ -64,7 +58,9 @@
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between">
           <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Agendamentos</p>
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-krill-50 text-krill-600">
+          <div
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-krill-50 text-krill-600"
+          >
             <i class="pi pi-calendar text-lg" />
           </div>
         </div>
@@ -74,8 +70,12 @@
 
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets no Dia</p>
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Pallets no Dia
+          </p>
+          <div
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600"
+          >
             <i class="pi pi-database text-lg" />
           </div>
         </div>
@@ -85,12 +85,18 @@
 
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pallets na Faixa</p>
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Pallets na Faixa
+          </p>
+          <div
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"
+          >
             <i class="pi pi-box text-lg" />
           </div>
         </div>
-        <p class="mt-3 text-2xl font-bold text-emerald-700">{{ report?.totalEffectivePallets || 0 }}</p>
+        <p class="mt-3 text-2xl font-bold text-emerald-700">
+          {{ report?.totalEffectivePallets || 0 }}
+        </p>
         <p class="mt-1 text-xs text-slate-400">considerados na capacidade da faixa</p>
       </div>
 
@@ -108,15 +114,23 @@
 
     <!-- Tabela Detalhada -->
     <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        class="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+      >
         <div>
-          <h3 class="text-base font-semibold text-slate-900">Detalhamento dos Agendamentos no Período</h3>
+          <h3 class="text-base font-semibold text-slate-900">
+            Detalhamento dos Agendamentos no Período
+          </h3>
           <p class="text-xs text-slate-500">
-            Exibindo {{ filteredAppointments.length }} de {{ report?.appointments?.length || 0 }} registros.
+            Exibindo {{ filteredAppointments.length }} de
+            {{ report?.appointments?.length || 0 }} registros.
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <label class="text-xs font-semibold uppercase tracking-wider text-slate-600" for="status-filter">
+          <label
+            class="text-xs font-semibold uppercase tracking-wider text-slate-600"
+            for="status-filter"
+          >
             Status
           </label>
           <select
@@ -141,14 +155,20 @@
         <template #empty>
           <div class="py-12 text-center">
             <i class="pi pi-inbox text-4xl text-slate-300 mb-3" />
-            <p class="text-base font-medium text-slate-700">Nenhum agendamento encontrado no período selecionado</p>
-            <p class="text-xs text-slate-400 mt-1">Selecione outro intervalo de datas e clique em "Gerar Relatório".</p>
+            <p class="text-base font-medium text-slate-700">
+              Nenhum agendamento encontrado no período selecionado
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              Selecione outro intervalo de datas e clique em "Gerar Relatório".
+            </p>
           </div>
         </template>
 
         <Column field="orderId" header="ID Pedido" sortable style="min-width: 120px">
           <template #body="{ data }">
-            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800">
+            <span
+              class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-800"
+            >
               {{ data.orderId }}
             </span>
           </template>
@@ -162,7 +182,9 @@
 
         <Column header="Faixa Horária" style="min-width: 140px">
           <template #body="{ data }">
-            <span class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+            >
               <i class="pi pi-clock text-[10px] text-slate-500" />
               {{ data.timeSlot?.startTime }} às {{ data.timeSlot?.endTime }}
             </span>
@@ -180,7 +202,9 @@
 
         <Column field="truckPlate" header="Placa" style="min-width: 110px">
           <template #body="{ data }">
-            <span class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold uppercase tracking-wider text-slate-800">
+            <span
+              class="rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-xs font-bold uppercase tracking-wider text-slate-800"
+            >
               {{ data.truckPlate }}
             </span>
           </template>
@@ -199,11 +223,7 @@
               severity="success"
               value="Paletizado"
             />
-            <Tag
-              v-else
-              severity="warn"
-              value="Não Paletizado (2x)"
-            />
+            <Tag v-else severity="warn" value="Não Paletizado (2x)" />
           </template>
         </Column>
 
@@ -286,7 +306,8 @@ function formatDateTime(isoString) {
 }
 
 function cancelInfo(appointment) {
-  const actor = appointment.canceledBy?.name || appointment.canceledBy?.email || 'usuário não identificado'
+  const actor =
+    appointment.canceledBy?.name || appointment.canceledBy?.email || 'usuário não identificado'
   const when = formatDateTime(appointment.canceledAt)
   return when ? `${actor} em ${when}` : actor
 }

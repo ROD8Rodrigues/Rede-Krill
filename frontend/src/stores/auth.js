@@ -1,35 +1,36 @@
 import { defineStore } from 'pinia'
-import { api, TOKEN_KEY, USER_KEY } from '../services/api'
+import { api, ensureCsrf, setUnauthorizedHandler } from '../services/api'
 
-function readStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY))
-  } catch {
-    return null
-  }
+let unauthorizedHandlerRegistered = false
+
+export function safeRedirect(value, fallback = '/dashboard') {
+  if (typeof value !== 'string' || value.length === 0) return fallback
+  if (!value.startsWith('/')) return fallback
+  if (value.startsWith('//') || value.startsWith('/\\')) return fallback
+  return value
 }
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
-    user: readStoredUser(),
-    loading: false
+    user: null,
+    loading: false,
+    initialized: false
   }),
 
   getters: {
-    isAuthenticated: (state) => Boolean(state.token),
-    isAdmin: (state) => state.user?.role === 'ADMIN'
+    isAuthenticated: (state) => Boolean(state.user),
+    isAdmin: (state) => state.user?.role === 'ADMIN',
+    mustChangePassword: (state) => Boolean(state.user?.mustChangePassword)
   },
 
   actions: {
     async login(credentials) {
       this.loading = true
       try {
+        await ensureCsrf()
         const { data } = await api.post('/auth/login', credentials)
-        this.token = data.token
         this.user = data.user
-        localStorage.setItem(TOKEN_KEY, data.token)
-        localStorage.setItem(USER_KEY, JSON.stringify(data.user))
+        this.initialized = true
         return data.user
       } finally {
         this.loading = false
@@ -39,23 +40,49 @@ export const useAuthStore = defineStore('auth', {
     async loadCurrentUser() {
       const { data } = await api.get('/auth/me')
       this.user = data
-      localStorage.setItem(USER_KEY, JSON.stringify(data))
       return data
+    },
+
+    async initialize() {
+      if (this.initialized) return this.user
+      try {
+        await this.loadCurrentUser()
+      } catch {
+        this.user = null
+      } finally {
+        this.initialized = true
+        this.registerUnauthorizedHandler()
+      }
+      return this.user
+    },
+
+    async changePassword(payload) {
+      await ensureCsrf()
+      await api.post('/auth/change-password', payload)
+      this.user = null
     },
 
     async logout() {
       try {
-        if (this.token) {
-          await api.post('/auth/logout')
-        }
+        await ensureCsrf()
+        await api.post('/auth/logout')
       } catch (error) {
-        console.error('Não foi possível registrar o logout na auditoria:', error)
+        console.error('Não foi possível registrar o logout no servidor:', error)
       } finally {
-        this.token = ''
         this.user = null
-        localStorage.removeItem(TOKEN_KEY)
-        localStorage.removeItem(USER_KEY)
+        this.initialized = true
       }
+    },
+
+    registerUnauthorizedHandler() {
+      if (unauthorizedHandlerRegistered) return
+      unauthorizedHandlerRegistered = true
+      setUnauthorizedHandler(() => {
+        this.user = null
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:expired'))
+        }
+      })
     }
   }
 })

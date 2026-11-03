@@ -37,7 +37,9 @@
           <div class="py-12 text-center">
             <i class="pi pi-truck text-4xl text-slate-300 mb-3" />
             <p class="text-base font-medium text-slate-700">Nenhum tipo de caminhão cadastrado</p>
-            <p class="text-xs text-slate-400 mt-1">Utilize o botão acima para adicionar o primeiro modelo.</p>
+            <p class="text-xs text-slate-400 mt-1">
+              Utilize o botão acima para adicionar o primeiro modelo.
+            </p>
           </div>
         </template>
 
@@ -116,9 +118,7 @@
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">
-            Descrição
-          </label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1"> Descrição </label>
           <textarea
             v-model="form.description"
             rows="3"
