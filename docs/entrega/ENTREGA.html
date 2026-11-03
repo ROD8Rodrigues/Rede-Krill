@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rede Krill Scheduling — Documento de Entrega</title>
+<style>
+  @page { size: A4; margin: 18mm 15mm 20mm 15mm; }
+  :root {
+    --ink: #16202b;
+    --ink-soft: #46586c;
+    --line: #d7dfe8;
+    --accent: #0b5c4a;
+    --accent-soft: #eaf3f0;
+    --warn: #a85a00;
+    --danger: #a32d2a;
+    --ok: #146c43;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Calibri, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; color: var(--ink); margin: 0 0 .35em; }
+  h1 { font-size: 21pt; line-height: 1.2; }
+  h2 { font-size: 14pt; margin-top: 22px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
+  h3 { font-size: 11.5pt; margin-top: 16px; color: var(--accent); }
+  p { margin: 0 0 9px; }
+  ul, ol { margin: 0 0 10px; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+  code, .mono {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 9pt;
+    background: #f1f4f7;
+    padding: 1px 3px;
+    border-radius: 2px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5pt; }
+  th { background: var(--accent-soft); color: var(--ink); text-align: left; font-weight: 600; }
+  th, td { border: 1px solid var(--line); padding: 5px 7px; vertical-align: top; }
+  tbody tr:nth-child(even) td { background: #fafbfc; }
+  .cover { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 18px; }
+  .cover .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 8.5pt; color: var(--accent); font-weight: 700; }
+  .cover .meta { color: var(--ink-soft); font-size: 9.5pt; }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 9px 12px; margin: 10px 0 14px; font-size: 9.8pt; }
+  .callout.warn { border-left-color: var(--warn); background: #fdf3e6; }
+  .callout.danger { border-left-color: var(--danger); background: #fbeeed; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+  .kpi { flex: 1 1 30%; border: 1px solid var(--line); border-top: 3px solid var(--accent); padding: 8px 10px; background: #fff; }
+  .kpi .v { font-size: 16pt; font-weight: 700; font-family: Georgia, serif; color: var(--accent); }
+  .kpi .l { font-size: 8.6pt; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+  .kpi.na { border-top-color: var(--warn); }
+  .kpi.na .v { color: var(--warn); font-size: 13pt; }
+  .badge { font-size: 8.2pt; font-weight: 700; padding: 1px 6px; border-radius: 9px; white-space: nowrap; }
+  .b-ok { background: #e2f0e8; color: var(--ok); }
+  .b-med { background: #fdecd2; color: var(--warn); }
+  .b-high { background: #fbe2e0; color: var(--danger); }
+  .b-info { background: #e8eef5; color: var(--ink-soft); }
+  .flow { border: 1px solid var(--line); background: #fbfcfd; padding: 10px; margin: 8px 0 14px; font-family: Consolas, monospace; font-size: 8.8pt; line-height: 1.65; }
+  .page-break { page-break-before: always; }
+  h2, h3 { page-break-after: avoid; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  .flow, .callout, .kpis, .cover { page-break-inside: avoid; }
+  table { page-break-inside: auto; }
+  footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 8.6pt; color: var(--ink-soft); }
+  .ev { font-size: 8.8pt; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="kicker">Documento de entrega técnica</div>
+  <h1>Rede Krill Scheduling<br>Agendamento de coletas — backend, frontend e operação</h1>
+  <p class="meta">
+    Data desta edição: <strong>2 de novembro de 2026</strong> ·
+    Ramo: <code>main</code> · último commit publicado: <code>06cee93</code> ·
+    Estado do código de segurança: <strong>modificado, aguardando commit de checkpoint pelo responsável</strong><br>
+    Escopo: entrega de engenharia para uso interno, com inventário de controles, evidências medidas e lacunas residuais declaradas.
+  </p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">125</div><div class="l">testes backend · 0 falhas</div></div>
+  <div class="kpi"><div class="v">91,25%</div><div class="l">linhas nos 4 pacotes críticos (gate 80%)</div></div>
+  <div class="kpi"><div class="v">0</div><div class="l">vulnerabilidades de produção (npm)</div></div>
+  <div class="kpi"><div class="v">6</div><div class="l">ADRs + runbook + relatório de segurança</div></div>
+  <div class="kpi na"><div class="v">Docker não validado</div><div class="l">runtime fora desta máquina</div></div>
+  <div class="kpi na"><div class="v">SCA backend não executado</div><div class="l">Dependency-Check pendente</div></div>
+</div>
+
+<h2>1. Sumário executivo</h2>
+<p>
+O sistema cobre o fluxo completo de agendamento de coletas: autenticação com sessão revogável, cadastro e
+consulta de horários, tipos de caminhão e tipos de paletização, criação/movimentação/cancelamento de agendamentos
+com validação de capacidade, trilha de auditoria, relatórios paginados e notificação por e-mail via <em>outbox</em>
+transacional. A base anterior de segurança (token em <code>localStorage</code>, sem rotação, sem rate limiting)
+foi substituída por cookies <code>HttpOnly</code>, CSRF, refresh token rotativo, lockout de login e troca obrigatória
+de senha inicial.
+</p>
+<div class="callout">
+<strong>Condição de entrega.</strong> Pronto para operação interna controlada em instância única com HTTPS obrigatório.
+<strong>Não</strong> se afirma ausência de CVEs nas dependências backend (análise de composição nunca executada)
+nem validade do caminho Docker/CI (indisponível nesta máquina). As limitações estão listadas na seção 7 e
+amarradas a IDs em <code>SECURITY_REPORT.md</code>.
+</div>
+
+<h2>2. Inventário técnico</h2>
+<table>
+  <thead><tr><th>Camada</th><th>Tecnologia</th><th>Versão verificada</th><th>Evidência</th></tr></thead>
+  <tbody>
+    <tr><td>Backend</td><td>Java + Spring Boot</td><td>21 / 4.1.2</td><td class="ev"><code>backend/pom.xml</code></td></tr>
+    <tr><td>Persistência</td><td>Flyway + PostgreSQL + Hibernate</td><td>16-alpine · <code>ddl-auto: validate</code></td><td class="ev"><code>docker-compose.yml</code>, <code>application.yml</code></td></tr>
+    <tr><td>Autenticação</td><td>jjwt (JWT HS256) + BCrypt + refresh próprio</td><td>0.12.6</td><td class="ev"><code>JwtTokenService</code>, <code>AuthSessionService</code></td></tr>
+    <tr><td>Migrações</td><td>Flyway SQL versionado</td><td>V1–V6</td><td class="ev"><code>backend/src/main/resources/db/migration</code></td></tr>
+    <tr><td>Frontend</td><td>Vue 3 + Vite + Pinia + Tailwind</td><td>Vite 8.3.5 · Vitest 5.1.0 · Playwright 1.64.1</td><td class="ev"><code>frontend/package.json</code></td></tr>
+    <tr><td>Observabilidade</td><td>Actuator + Micrometer/Prometheus + logs ECS</td><td>—</td><td class="ev"><code>application-prod.yml</code>, <code>CorrelationIdFilter</code></td></tr>
+    <tr><td>Qualidade</td><td>ArchUnit, JaCoCo (gate 80%), ESLint, Prettier, vue-tsc</td><td>JaCoCo 0.8.12</td><td class="ev"><code>ArchitectureTest</code>, <code>backend/pom.xml:170-192</code></td></tr>
+    <tr><td>Entrega</td><td>Docker Compose (postgres, backend, frontend, MailHog em perfil <code>dev</code>)</td><td>—</td><td class="ev"><code>docker-compose.yml</code> — <em>não executado</em></td></tr>
+  </tbody>
+</table>
+
+<h2>3. Arquitetura</h2>
+<p>
+Clean Architecture em quatro camadas com dependências apontando para dentro. Os limites são verificados por
+ArquUnit em <code>ArchitectureTest</code> (4 regras, executadas dentro dos 125 testes), o que impede que a camada
+de domínio dependa de Spring ou de detalhes de infraestrutura.
+</p>
+<div class="flow">
+presentation (REST, DTOs, filtros, handler global)   →   application (use cases, ports, services, DTOs)<br>
+        ↓                                                       ↓<br>
+infrastructure (JPA, Flyway, JWT, mail, outbox, seed)   ←   domain (entidades, políticas, repositórios-porta)
+</div>
+<h3>Decisões documentadas</h3>
+<table>
+  <thead><tr><th>ADR</th><th>Decisão</th><th>Consequência prática</th></tr></thead>
+  <tbody>
+    <tr><td>ADR-001</td><td>Sessão = JWT curto + refresh opaco em cookie <code>HttpOnly</code>, com <code>sid</code> no access token</td><td>Logout e revogação têm efeito imediato; <code>localStorage</code> saiu do frontend</td></tr>
+    <tr><td>ADR-002</td><td>CSRF por <code>CookieCsrfTokenRepository</code> + exceção apenas para header <code>Bearer</code></td><td>Mutações no navegador exigem <code>X-XSRF-TOKEN</code>; CLI dev continua funcionando</td></tr>
+    <tr><td>ADR-003</td><td>E-mail por outbox transacional, envio assíncrono e re-tentativas</td><td>POST nunca depende do provedor de e-mail; <code>emailQueued</code> ≠ <code>emailSent</code></td></tr>
+    <tr><td>ADR-004</td><td>Limites de capacidade como constantes de domínio (480/dia, 120/faixa)</td><td>Sem tabela de configuração; <code>V5</code> removeu <code>capacity_settings</code></td></tr>
+    <tr><td>ADR-005</td><td>Flyway como único dono do schema, <code>validate</code> em todos os perfis</td><td>Deploy de banco antes do de app; migração quebrada derruba o boot</td></tr>
+    <tr><td>ADR-006</td><td>Unicidade em três camadas + <code>@Version</code> para lock otimista</td><td>Concorrente recebe <code>409</code>, não escrita duplicada ou perdido</td></tr>
+  </tbody>
+</table>
+
+<h3>Fluxo de autenticação em uso</h3>
+<div class="flow">
+login → ensureCsrf (GET) → POST /api/auth/login → set cookies (access 15′ / refresh 7d, hash SHA-256 no banco)<br>
+expiração → 401 → fila single-flight no axios → POST /api/auth/refresh → rotação (token antigo revogado, de uso único)<br>
+troca de senha obrigatória → filtro devolve 403 PASSWORD_CHANGE_REQUIRED → /change-password revoga todas as sessões
+</div>
+
+<h2>4. Seguran&#231;a implementada</h2>
+<table>
+  <thead><tr><th>Controle</th><th>Implementação</th><th>Local</th></tr></thead>
+  <tbody>
+    <tr><td>Sessão revogável</td><td>Claim <code>sid</code> validado contra <code>auth_session</code>; <code>revokeIfActive</code> torna refresh de uso único</td><td class="ev"><code>AuthSessionService.java:48-137</code>, <code>JwtAuthenticationFilter.java:56-96</code></td></tr>
+    <tr><td>Segredo de refresh</td><td>32 bytes de <code>SecureRandom</code>; persistido somente como hash SHA-256, com índice único</td><td class="ev"><code>SecureRefreshTokenGenerator.java:16-39</code></td></tr>
+    <tr><td>CSRF</td><td>Cookie token repository + matcher de exceção para <code>Authorization: Bearer</code></td><td class="ev"><code>SecurityConfig.java:56-65</code></td></tr>
+    <tr><td>Lockout de login</td><td>5 tentativas por conta, 20 por IP, janela 15′, bloqueio 5′ progressivo (×4), poda a 10 000 entradas; <code>429</code> + <code>Retry-After</code></td><td class="ev"><code>LoginAttemptService.java:40-114</code></td></tr>
+    <tr><td>Política de senha</td><td>12+ caracteres, letra e número, lista de senhas proibidas; troca obrigatória no primeiro acesso; revoga sessões ao trocar</td><td class="ev"><code>ChangePasswordUseCase.java:20-95</code>, <code>PasswordChangeRequiredFilter</code></td></tr>
+    <tr><td>Segredos obrigatórios</td><td><code>JWT_SECRET</code> e <code>POSTGRES_PASSWORD</code> sem default; validador fail-fast no perfil <code>prod</code></td><td class="ev"><code>ProductionConfigurationValidator.java:42-81</code></td></tr>
+    <tr><td>Superfície exposta</td><td>health público sem detalhes; prometheus e Swagger só para ADMIN; Swagger desligado por default em produção</td><td class="ev"><code>SecurityConfig.java:121-136</code>, <code>application-prod.yml</code></td></tr>
+    <tr><td>Auditoria</td><td>Trilha imutável com ator, entidade, ação e correlation id</td><td class="ev"><code>V4</code>/<code>V5</code>, <code>AuditLogController</code></td></tr>
+    <tr><td>Frontend</td><td><code>withCredentials</code>, nenhum token em storage, <code>safeRedirect</code> contra open redirect</td><td class="ev"><code>services/api.js</code>, <code>stores/auth.js</code></td></tr>
+  </tbody>
+</table>
+
+<h2>5. Evidências medidas</h2>
+<p class="ev">Todos os números abaixo foram re-lidos nesta edição a partir dos artefatos gerados no repositório — não de memória. Nada aqui foi estimado.</p>
+<table>
+  <thead><tr><th>Métrica</th><th>Valor</th><th>Origem</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Testes backend</td><td>125 em 25 classes · 0 falhas · 0 erros · 0 ignorados</td><td class="ev"><code>backend/target/surefire-reports/*.xml</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura — gate crítico (linhas)</td><td>438/480 = <strong>91,25%</strong> contra mínimo de 80%</td><td class="ev"><code>backend/target/site/jacoco/jacoco.csv</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura — gate crítico (instruções)</td><td>1966/2240 = <strong>87,77%</strong> (número citado em sessões anteriores)</td><td class="ev">mesmo CSV, contador <code>INSTRUCTION</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura global</td><td>linhas 80,05% · ramos 56,93%</td><td class="ev">mesmo CSV</td><td><span class="badge b-info">CONTEXTO</span></td></tr>
+    <tr><td>Classes de controle de acesso</td><td><code>LoginAttemptService</code> 69,4% linhas / 57,4% instr · <code>ChangePasswordUseCase</code> 75,6% / 68,5% · <code>JwtTokenService</code> 72,7% linhas</td><td class="ev">mesmo CSV, por classe</td><td><span class="badge b-med">LACUNA — SEC-02</span></td></tr>
+    <tr><td>Processador de outbox</td><td><code>EmailOutboxProcessor</code> com 0% de linhas (49 linhas sem cobertura)</td><td class="ev">mesmo CSV</td><td><span class="badge b-med">LACUNA — SEC-14</span></td></tr>
+    <tr><td>Dependências frontend — produção</td><td><code>npm audit --omit=dev</code> → <strong>found 0 vulnerabilities</strong> (re-executado nesta edição)</td><td class="ev"><code>frontend/package-lock.json</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Dependências frontend — dev</td><td>12 vulnerabilidades moderadas em árvore de desenvolvimento; sem efeito no bundle entregue</td><td class="ev"><code>npm audit</code> completo</td><td><span class="badge b-info">ACEITO</span></td></tr>
+    <tr><td>E2E frontend</td><td>último run <code>"status": "passed", "failedTests": []</code> (fluxo de autenticação)</td><td class="ev"><code>frontend/test-results/.last-run.json</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Dependências backend (SCA)</td><td>sem relatório <code>dependency-check</code>; exige chave NVD</td><td class="ev">perfil <code>security</code> em <code>backend/pom.xml</code></td><td><span class="badge b-high">NÃO EXECUTADO — SEC-03</span></td></tr>
+    <tr><td>Docker Compose / CI GitHub Actions</td><td>arquivos presentes e revisados; nenhuma execução nesta máquina</td><td class="ev"><code>docker-compose.yml</code>, <code>.github/workflows/ci.yml</code></td><td><span class="badge b-high">NÃO VALIDADO — SEC-06</span></td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+<strong>Precisão de número.</strong> A métrica citada como "cobertura crítica 87,77%" corresponde a <em>instruções</em>.
+O gate do build é avaliado por <em>linhas</em>, cujo valor atual nos quatro pacotes críticos é 91,25%.
+Ambos os números são apresentados nesta entrega para evitar ambiguidade em revisões futuras.
+</div>
+
+<h2>6. Achados abertos (resumo)</h2>
+<p>Descrição completa, evidência e plano de re-teste em <code>SECURITY_REPORT.md</code>, seções 6 e 9.</p>
+<table>
+  <thead><tr><th>ID</th><th>Criticidade</th><th>Achado</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr><td>SEC-01</td><td><span class="badge b-high">Alto</span></td><td>Lockout de login é local à instância (memória) — não compartilhado e zerado no restart</td><td>PARCIAL</td></tr>
+    <tr><td>SEC-03</td><td><span class="badge b-high">Alto</span></td><td>Análise de composição do backend nunca executada; não é possível afirmar ausência de CVEs</td><td>ABERTO</td></tr>
+    <tr><td>SEC-06</td><td><span class="badge b-high">Alto</span></td><td>Sem validação de runtime: Docker indisponível, CI nunca rodou sobre este estado, e2e cobre só autenticação</td><td>ABERTO</td></tr>
+    <tr><td>SEC-02</td><td><span class="badge b-med">Médio</span></td><td>Gate por agregado de pacote oculta cobertura fraca exatamente nas classes de controle de acesso</td><td>ABERTO</td></tr>
+    <tr><td>SEC-04</td><td><span class="badge b-med">Médio</span></td><td>Reuso de refresh token não dispara revogação em cascata nem evento de auditoria</td><td>ABERTO</td></tr>
+    <tr><td>SEC-05</td><td><span class="badge b-med">Médio</span></td><td>Política de senha assimétrica: ADMIN cria com 8 caracteres, usuário troca exigindo 12</td><td>ABERTO</td></tr>
+    <tr><td>SEC-07</td><td><span class="badge b-info">Baixo</span></td><td>Work factor do BCrypt fixo em 10, não parametrizável por configuração</td><td>ABERTO</td></tr>
+    <tr><td>SEC-08</td><td><span class="badge b-info">Baixo</span></td><td><code>email_outbox</code> retém destinatário e erros sem política de expurgo</td><td>ABERTO</td></tr>
+    <tr><td>SEC-09</td><td><span class="badge b-info">Baixo</span></td><td>Credencial de fixture <code>LoginUseCaseTest.java:60,66,149</code> com aparência de segredo real</td><td>ABERTO</td></tr>
+    <tr><td>SEC-10/11/12</td><td><span class="badge b-info">Info</span></td><td><code>SameSite</code> divergente por perfil, token no corpo só em dev, CORS por lista explícita</td><td>INFORMATIVO</td></tr>
+    <tr><td>SEC-13</td><td><span class="badge b-ok">Baixo</span></td><td>Migração <code>V5</code> destrutiva (<code>DROP TABLE capacity_settings</code>) — justificada no SQL e no runbook</td><td>TRATADO</td></tr>
+    <tr><td>SEC-14</td><td><span class="badge b-med">Médio</span></td><td><code>EmailOutboxProcessor</code> sem teste próprio (0% de cobertura): a entrega assíncrona garantida pelo ADR-003 só existe como código</td><td>ABERTO</td></tr>
+  </tbody>
+</table>
+
+<h2>7. O que ainda não se pode afirmar</h2>
+<ul>
+  <li><strong>Ausência de CVEs no backend.</strong> Nunca executado; requer <code>NVD_API_KEY</code> e o perfil Maven <code>security</code>.</li>
+  <li><strong>Comportamento ponta a ponta dos controles.</strong> CSRF, <code>429</code>, rotação de refresh e outbox são verificados por testes unitários e de integração com Postgres embarcado, não contra o stack completo do compose.</li>
+  <li><strong>Deploy em produção.</strong> Nenhum ambiente real recebeu esta versão; o checklist de go-live está em <code>docs/operacao/RUNBOOK.md</code>, seção 9.</li>
+  <li><strong>Escala horizontal.</strong> Rate limiting em memória e outbox sem <em>claim</em> distribuído limitam a réplica a uma instância ativa por restrição deliberada (SEC-01, ADR-003).</li>
+</ul>
+
+<h2>8. Entregáveis desta documentação</h2>
+<table>
+  <thead><tr><th>Artefato</th><th>Conteúdo</th></tr></thead>
+  <tbody>
+    <tr><td><code>README.md</code></td><td>Visão, arquitetura, regras de negócio, execução sem Docker, variáveis de ambiente, API, migrações, testes e limitações</td></tr>
+    <tr><td><code>SECURITY_REPORT.md</code></td><td>Superfície por rota, 10 grupos de controles, evidências, 14 achados, mapa da auditoria anterior e plano de re-teste</td></tr>
+    <tr><td><code>docs/arquitetura/</code></td><td>Índice + ADR-001 a ADR-006, todos com status Aceita e evidência em arquivo:linha</td></tr>
+    <tr><td><code>docs/operacao/RUNBOOK.md</code></td><td>Perfis, provisionamento, rotinas com SQL real, deploy e rollback, incidentes, escalabilidade e diagnóstico</td></tr>
+    <tr><td><code>docs/entrega/ENTREGA.html</code> · este PDF</td><td>Documento de entrega para revisão técnica e de negócio</td></tr>
+    <tr><td><code>docs/entrega/ROTEIRO_VIDEO.md</code></td><td>Roteiro cena a cena da demonstração, com falas, tempo e o que mostrar em tela</td></tr>
+    <tr><td><code>docs/VALIDACAO_FINAL.md</code></td><td>Relatório final de validação com itens classificados por criticidade e evidência</td></tr>
+  </tbody>
+</table>
+
+<h2>9. Recomendações por prioridade</h2>
+<table>
+  <thead><tr><th>Prioridade</th><th>Ação</th><th>Fecha</th></tr></thead>
+  <tbody>
+    <tr><td>P0 antes do go-live</td><td>Executar Dependency-Check com chave NVD e triar; rodar o stack real via compose e validar login + CSRF + <code>429</code> + criação de agendamento ponta a ponta</td><td>SEC-03, SEC-06</td></tr>
+    <tr><td>P0 antes do go-live</td><td>Commit de checkpoint do estado atual e execução da CI sobre ele</td><td>SEC-06</td></tr>
+    <tr><td>P1 primeira iteração</td><td>Gate de cobertura por classe nas 4 classes de controle de acesso; testes de lockout progressivo, poda e do processador de outbox</td><td>SEC-02, SEC-14</td></tr>
+    <tr><td>P1 primeira iteração</td><td>Revogação em cascata no reuso de refresh + evento de auditoria; unificar política de senha em 12+ no cadastro e na troca</td><td>SEC-04, SEC-05</td></tr>
+    <tr><td>P2 conforme escala</td><td>Store compartilhado de tentativas de login (Redis ou tabela) quando houver mais de uma réplica; parametrizar BCrypt; retenção/expurgo de outbox e auditoria; secret-scan no repositório</td><td>SEC-01, SEC-07, SEC-08, SEC-09</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Rede Krill Scheduling · documento de entrega gerado em 02/11/2026 · convertida para PDF com Chrome headless a partir de
+  <code>docs/entrega/ENTREGA.html</code>. Todos os valores medidos são reproduzíveis com os comandos de
+  <code>docs/operacao/RUNBOOK.md</code>, seção 9. Itens não executados estão marcados como não validados.
+</footer>
+
+</body>
+</html>
