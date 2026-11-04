@@ -11,7 +11,7 @@
 # A imagem final não tem Node nem node_modules: só dist estático e a configuração do nginx.
 # O healthcheck do docker-compose usa o wget do busybox que já vem na imagem.
 
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
