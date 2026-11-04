@@ -363,80 +363,74 @@ Antes de começar, tenha instalado:
 
 **Observação:** a execução com Docker não foi validada no ambiente de desenvolvimento utilizado. A execução local sem Docker foi a trilha validada nessa máquina.
 
-### 1. Preparar as variáveis de ambiente
+### 1. Executar com Docker Compose
 
-Na raiz do projeto, copie o arquivo de exemplo:
-
-```bash
-cp .env.example .env
-```
-
-No Windows PowerShell, também é possível utilizar:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Configure as credenciais necessárias, incluindo:
-
-```env
-POSTGRES_PASSWORD=sua_senha_forte
-JWT_SECRET=seu_segredo_aleatorio
-```
-
-Para criar o primeiro usuário administrador em ambiente de desenvolvimento:
-
-```env
-SEED_ADMIN_ENABLED=true
-SEED_ADMIN_PASSWORD=sua_senha_forte_com_pelo_menos_12_caracteres
-SPRING_PROFILES_ACTIVE=dev
-```
-
-Não existem mais credenciais administrativas padrão. A senha precisa atender à política de segurança definida pelo projeto.
-
-### 2. Executar com Docker Compose
-
-Para iniciar o ambiente de desenvolvimento:
+O caminho curto, que é o que o desafio pede:
 
 ```bash
-SPRING_PROFILES_ACTIVE=dev docker compose --profile dev up --build
+docker-compose up
 ```
 
-Para iniciar o ambiente de produção:
+Isso sobe PostgreSQL, MailHog (SMTP + UI em `http://localhost:8025`), o backend Spring Boot e o frontend servido por nginx, na ordem certa — o compose só libera o frontend depois de o backend passar no healthcheck. Nenhuma configuração é necessária: o `docker-compose.yml` traz padrões de desenvolvimento para a senha do banco, para o seed do primeiro ADMIN e para o SMTP, e o perfil `dev` gera o segredo de assinatura do JWT em memória quando não recebe `JWT_SECRET`.
 
-```bash
-docker compose up --build
-```
-
-Serviços disponíveis no ambiente de desenvolvimento:
+Depois da subida, os endereços são:
 
 | Serviço | Endereço |
 |---|---|
 | Frontend | http://localhost:8081 |
-| Backend | http://localhost:8080 |
+| Backend (API) | http://localhost:8080 |
 | Swagger UI | http://localhost:8081/swagger-ui.html |
 | MailHog | http://localhost:8025 |
-| PostgreSQL | localhost:5432 |
+| PostgreSQL | interno da rede `rede-krill` (nenhuma porta publicada) |
+
+O primeiro acesso usa o ADMIN do seed: `admin@redekrill.com` com a senha `KrillDev2026Local`. Essa senha é um padrão de desenvolvimento declarado no compose e está na lista de valores recusados pelo `ProductionConfigurationValidator` — com o perfil `prod`, ela derruba o boot em vez de subir um admin fraco. Para qualquer coisa além de demonstração local, preencha `.env` (o modelo é o `.env.example`) com `SEED_ADMIN_PASSWORD` próprio, `POSTGRES_PASSWORD` e `JWT_SECRET`.
+
+Build das imagens a partir do zero, ou depois de mudar código:
+
+```bash
+docker-compose up --build
+```
 
 Para encerrar:
 
 ```bash
-docker compose down
+docker-compose down
 ```
 
 Para remover também os dados persistidos do PostgreSQL:
 
 ```bash
-docker compose down -v
+docker-compose down -v
 ```
 
-**Atenção:** o perfil de produção utiliza cookies com a flag `Secure`, portanto a aplicação deve ser acessada por HTTPS. Para testes locais em HTTP, utilize o perfil `dev`.
+#### Produção com o mesmo compose
 
-### 3. Executar sem Docker — Windows
+`SPRING_PROFILES_ACTIVE=prod` muda o comportamento do app (cookies `Secure`, Swagger restrito a ADMIN e o validator de configuração), mas o arquivo é o mesmo. Nesse caso o `.env` deixa de ser opcional:
+
+```env
+SPRING_PROFILES_ACTIVE=prod
+POSTGRES_PASSWORD=sua_senha_forte
+JWT_SECRET=segredo_base64_de_48_bytes
+AUTH_COOKIE_SECURE=true
+AUTH_EXPOSE_TOKEN_IN_RESPONSE=false
+SEED_ADMIN_ENABLED=false
+```
+
+Sem HTTPS na frente, o cookie `Secure` não é gravado pelo navegador e o login não completa — o perfil de produção exige um término TLS (o `frontend/nginx.conf` é o ponto de partida para isso).
+
+**Nota sobre as duas variáveis que mudam de lado conforme o caminho:** `MAIL_HOST` vale `mailhog` dentro da rede do compose, e `localhost` quando o backend roda na sua máquina sem Docker; `TRUST_FORWARDED_HEADERS` vale `true` atrás do proxy do nginx (senão o lockout por IP conta o gateway do Docker como cliente) e `false` quando o backend está exposto direto (sem proxy, o cabeçalho é inventado por quem chama).
+
+### 2. Executar sem Docker — Windows
 
 Se preferir iniciar os serviços separadamente, siga os passos abaixo.
 
-O PostgreSQL 16 precisa estar instalado e funcionando, com as credenciais configuradas no ambiente.
+O PostgreSQL 16 precisa estar instalado e funcionando. Diferente do compose, este caminho **exige** o `.env`: o Spring não lê o arquivo (não há `spring-dotenv` no `pom.xml`), quem lê é o script.
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Preencha `POSTGRES_PASSWORD` com a senha do seu banco. `JWT_SECRET` pode ficar de fora: o script gera um segredo efêmero e avisa no console (os tokens caem a cada restart). `MAIL_HOST` e `TRUST_FORWARDED_HEADERS` também não precisam aparecer — fora do Docker o script assume `localhost` e `false`, que são os valores corretos quando não há proxy na frente.
 
 Na raiz do projeto, execute o script de desenvolvimento:
 

@@ -37,7 +37,11 @@ import java.util.Locale;
 public class ProductionConfigurationValidator {
 
     private static final List<String> KNOWN_SECRETS = List.of(
-            "admin@12345", "redekrill", "password", "changeme", "secret"
+            "admin@12345", "redekrill", "password", "changeme", "secret",
+            // Os dois padrões do docker-compose.yml. O compose os usa só no perfil dev; se
+            // alguém levantar prod com o mesmo arquivo sem preencher o .env, a subida é
+            // recusada aqui em vez de aceitar uma credencial pública no repositório.
+            "redekrill_dev_only", "krilldev2026local"
     );
 
     private final Environment environment;

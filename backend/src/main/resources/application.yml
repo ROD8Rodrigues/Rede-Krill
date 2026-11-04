@@ -95,6 +95,13 @@ management:
       probes:
         enabled: true
       show-details: never
+  health:
+    mail:
+      # O e-mail sai por fila transacional (ADR-003): SMTP indisponível atrasa a entrega,
+      # não derruba a API. Com este indicador ligado o /actuator/health respondia DOWN e
+      # o healthcheck do compose segurava até o frontend — uma dependência eventual
+      # virava critério de subida.
+      enabled: false
   metrics:
     tags:
       application: ${spring.application.name}

@@ -1,14 +1,38 @@
+# A stack inteira do desafio em um comando: `docker-compose up`.
+#
+# Ordem de leitura deste arquivo: postgres (o único estado persistente), mailhog (o SMTP
+# que o outbox usa), backend (Spring Boot empacotado no próprio Dockerfile, multi-stage) e
+# frontend (Vite compilado e servido por nginx, que também faz proxy de /api).
+#
+# Os valores com `${VAR:-padrao}` existem para que a subida sem nenhum `.env` funcione e seja
+# utilizável — inclusive o primeiro login, pelo seed do ADMIN. As senhas padrão são de
+# desenvolvimento e estão em ProductionConfigurationValidator.KNOWN_SECRETS: com o perfil
+# `prod`, a aplicação recusa o boot em vez de subir fraca. O segredo do JWT não tem padrão:
+# no perfil `dev` ele é gerado em memória, e em `prod` é obrigatório.
+# Para produção real, preencha POSTGRES_PASSWORD, JWT_SECRET e SEED_ADMIN_PASSWORD num `.env`
+# (o modelo é o .env.example) e exporte SPRING_PROFILES_ACTIVE=prod.
+#
+# O .env da raiz NÃO é lido pelo Spring: quem lê é o compose, na interpolação. Rodando o
+# backend fora de container, use .\start-dev.ps1, que faz o mesmo mapeamento.
+#
+# Não há container_name: quem nomeia os containers é o `name:` abaixo, então eles são
+# rede-krill-backend-1, rede-krill-postgres-1 ... e o volume vira rede-krill_postgres_data.
+# Um nome fixo por container impediria um segundo projeto (docker compose -p outro) de subir
+# em paralelo — é assim que se testa este arquivo sem tocar no seu volume.
 name: rede-krill
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: redekrill-postgres
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-rede_krill}
       POSTGRES_USER: ${POSTGRES_USER:-redekrill}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      # Senha de desenvolvimento: só vale dentro desta rede isolada, e o volume
+      # postgres_data é criado na primeira subida com ela.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-redekrill_dev_only}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,10 +46,11 @@ services:
       retries: 10
       start_period: 10s
 
+  # SMTP de teste. Fica no conjunto padrão porque o backend aponta para ele por
+  # default e porque a demo do e-mail de confirmação é parte do desafio: a UI em
+  # http://localhost:8025 mostra exatamente o que o outbox entregou.
   mailhog:
     image: mailhog/mailhog:v1.0.1
-    container_name: redekrill-mailhog
-    profiles: ['dev']
     restart: unless-stopped
     ports:
       - '${MAILHOG_SMTP_PORT:-1025}:1025'
@@ -34,16 +59,17 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: redekrill-backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rede_krill}
       DB_USERNAME: ${POSTGRES_USER:-redekrill}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-redekrill_dev_only}
+      # Nome do serviço na rede do compose — não um endereço do navegador. O host
+      # onde o app corre é o container, e "localhost" ali apontaria para ele mesmo.
       MAIL_HOST: ${MAIL_HOST:-mailhog}
       MAIL_PORT: ${MAIL_PORT:-1025}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -51,20 +77,31 @@ services:
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
       MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
       MAIL_FROM: ${MAIL_FROM:-nao-responda@redekrill.com}
-      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
-      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-Strict}
+      # Sem segredo no perfil `dev`, o JwtTokenService gera um segredo efêmero e loga o
+      # aviso: os tokens moram junto do processo e caem quando o backend reinicia. Nada de
+      # chave de assinatura fica neste arquivo. Em `prod` o campo é obrigatório e o
+      # validator recusa valor em branco, curto ou padrão conhecido.
+      JWT_SECRET: ${JWT_SECRET:-}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-Lax}
       AUTH_EXPOSE_TOKEN_IN_RESPONSE: ${AUTH_EXPOSE_TOKEN_IN_RESPONSE:-false}
+      # O nginx escreve X-Forwarded-For; sem isto o lockout por IP contaria todas as
+      # request vindas do gateway da rede do Docker como se fossem do mesmo cliente.
       TRUST_FORWARDED_HEADERS: ${TRUST_FORWARDED_HEADERS:-true}
       BCRYPT_STRENGTH: ${BCRYPT_STRENGTH:-12}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081}
-      SEED_ADMIN_ENABLED: ${SEED_ADMIN_ENABLED:-false}
+      SEED_ADMIN_ENABLED: ${SEED_ADMIN_ENABLED:-true}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@redekrill.com}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
-      SEED_ADMIN_REQUIRE_PASSWORD_CHANGE: ${SEED_ADMIN_REQUIRE_PASSWORD_CHANGE:-true}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-KrillDev2026Local}
+      SEED_ADMIN_REQUIRE_PASSWORD_CHANGE: ${SEED_ADMIN_REQUIRE_PASSWORD_CHANGE:-false}
       EMAIL_OUTBOX_ENABLED: ${EMAIL_OUTBOX_ENABLED:-true}
-      SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-false}
+      # Sem estas três linhas, mexer nelas no .env não chegaria ao container: o compose só
+      # repassa o que lista aqui, e o app lida o resto dos defaults do application.yml.
+      SESSION_EXPIRED_RETENTION: ${SESSION_EXPIRED_RETENTION:-7d}
+      SESSION_CLEANUP_ENABLED: ${SESSION_CLEANUP_ENABLED:-true}
+      SESSION_CLEANUP_INTERVAL: ${SESSION_CLEANUP_INTERVAL:-12h}
+      SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-true}
     ports:
       - '${BACKEND_PORT:-8080}:8080'
     healthcheck:
@@ -81,7 +118,6 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: redekrill-frontend
     restart: unless-stopped
     depends_on:
       backend:
