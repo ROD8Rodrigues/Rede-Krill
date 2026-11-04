@@ -15,7 +15,7 @@
 # embarcado), e o `-XX:MaxRAMPercentage` deixa o heap acompanhar o limite do container em
 # vez de fixar um -Xmx que vazaria em outra máquina.
 
-FROM maven:3.9.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 
 WORKDIR /app
 
