@@ -22,7 +22,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>3.2.0</springdoc.version>
         <archunit.version>1.4.1</archunit.version>
-        <jacoco.version>0.8.13</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <dependency-check.version>12.2.2</dependency-check.version>
         <embedded-postgres.version>2.2.2</embedded-postgres.version>
         <!-- DOMPurify 3.4.16, embutido no swagger-ui 5.34.0 que o springdoc 3.2.0 traz,
