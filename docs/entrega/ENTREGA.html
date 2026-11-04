@@ -77,20 +77,20 @@
   <div class="kicker">Documento de entrega técnica</div>
   <h1>Rede Krill Scheduling<br>Agendamento de coletas — backend, frontend e operação</h1>
   <p class="meta">
-    Data desta edição: <strong>2 de novembro de 2026</strong> ·
-    Ramo: <code>main</code> · último commit publicado: <code>06cee93</code> ·
-    Estado do código de segurança: <strong>modificado, aguardando commit de checkpoint pelo responsável</strong><br>
+    Data desta edição: <strong>3 de novembro de 2026</strong> ·
+    Ramo: <code>main</code> · último commit publicado: <code>a9bbc7b</code> ·
+    Estado do código de segurança: <strong>modificado, aguardando commit de checkpoint pelo responsável</strong> (81 entradas sujas em <code>git status --porcelain</code>)<br>
     Escopo: entrega de engenharia para uso interno, com inventário de controles, evidências medidas e lacunas residuais declaradas.
   </p>
 </div>
 
 <div class="kpis">
-  <div class="kpi"><div class="v">125</div><div class="l">testes backend · 0 falhas</div></div>
-  <div class="kpi"><div class="v">91,25%</div><div class="l">linhas nos 4 pacotes críticos (gate 80%)</div></div>
-  <div class="kpi"><div class="v">0</div><div class="l">vulnerabilidades de produção (npm)</div></div>
-  <div class="kpi"><div class="v">6</div><div class="l">ADRs + runbook + relatório de segurança</div></div>
+  <div class="kpi"><div class="v">214</div><div class="l">testes backend · 0 falhas</div></div>
+  <div class="kpi"><div class="v">98,85%</div><div class="l">linhas nos 4 pacotes críticos (gate 80%)</div></div>
+  <div class="kpi"><div class="v">68/68</div><div class="l">verificações de runtime contra o jar de produção</div></div>
+  <div class="kpi"><div class="v">0</div><div class="l">vulnerabilidades de produção (npm) e 0 no SCA do backend</div></div>
   <div class="kpi na"><div class="v">Docker não validado</div><div class="l">runtime fora desta máquina</div></div>
-  <div class="kpi na"><div class="v">SCA backend não executado</div><div class="l">Dependency-Check pendente</div></div>
+  <div class="kpi na"><div class="v">E2E não re-executado</div><div class="l">só autenticação; suíte não rodou nesta sessão</div></div>
 </div>
 
 <h2>1. Sumário executivo</h2>
@@ -104,9 +104,12 @@ de senha inicial.
 </p>
 <div class="callout">
 <strong>Condição de entrega.</strong> Pronto para operação interna controlada em instância única com HTTPS obrigatório.
-<strong>Não</strong> se afirma ausência de CVEs nas dependências backend (análise de composição nunca executada)
-nem validade do caminho Docker/CI (indisponível nesta máquina). As limitações estão listadas na seção 7 e
-amarradas a IDs em <code>SECURITY_REPORT.md</code>.
+<strong>Nenhuma</strong> vulnerabilidade conhecida fica sem correção nas dependências do backend: o Dependency-Check 12.2.2
+acusou o DOMPurify 3.4.16 embutido no webjar do Swagger UI e o estado atual retorna 0 componentes vulneráveis
+em 86 avaliados (seção 11 do <code>SECURITY_REPORT.md</code>). Os controles de autenticação foram validados
+contra o jar de produção em Postgres real: <strong>68/68</strong> verificações de runtime. O que <strong>não</strong>
+se pode validar nesta máquina é o caminho Docker/nginx/CI e a suíte Playwright. As limitações estão na seção 7
+e amarradas a IDs em <code>SECURITY_REPORT.md</code> (<code>SEC-01</code> a <code>SEC-31</code>).
 </div>
 
 <h2>2. Inventário técnico</h2>
@@ -116,10 +119,10 @@ amarradas a IDs em <code>SECURITY_REPORT.md</code>.
     <tr><td>Backend</td><td>Java + Spring Boot</td><td>21 / 4.1.2</td><td class="ev"><code>backend/pom.xml</code></td></tr>
     <tr><td>Persistência</td><td>Flyway + PostgreSQL + Hibernate</td><td>16-alpine · <code>ddl-auto: validate</code></td><td class="ev"><code>docker-compose.yml</code>, <code>application.yml</code></td></tr>
     <tr><td>Autenticação</td><td>jjwt (JWT HS256) + BCrypt + refresh próprio</td><td>0.12.6</td><td class="ev"><code>JwtTokenService</code>, <code>AuthSessionService</code></td></tr>
-    <tr><td>Migrações</td><td>Flyway SQL versionado</td><td>V1–V6</td><td class="ev"><code>backend/src/main/resources/db/migration</code></td></tr>
+    <tr><td>Migrações</td><td>Flyway SQL versionado</td><td>V1–V7</td><td class="ev"><code>backend/src/main/resources/db/migration</code></td></tr>
     <tr><td>Frontend</td><td>Vue 3 + Vite + Pinia + Tailwind</td><td>Vite 8.3.5 · Vitest 5.1.0 · Playwright 1.64.1</td><td class="ev"><code>frontend/package.json</code></td></tr>
     <tr><td>Observabilidade</td><td>Actuator + Micrometer/Prometheus + logs ECS</td><td>—</td><td class="ev"><code>application-prod.yml</code>, <code>CorrelationIdFilter</code></td></tr>
-    <tr><td>Qualidade</td><td>ArchUnit, JaCoCo (gate 80%), ESLint, Prettier, vue-tsc</td><td>JaCoCo 0.8.12</td><td class="ev"><code>ArchitectureTest</code>, <code>backend/pom.xml:170-192</code></td></tr>
+    <tr><td>Qualidade</td><td>ArchUnit 1.4.1, JaCoCo (gate 80% por linhas nos pacotes críticos), ESLint, Prettier, vue-tsc</td><td>JaCoCo 0.8.13</td><td class="ev"><code>ArchitectureTest</code>, <code>backend/pom.xml:186-205</code></td></tr>
     <tr><td>Entrega</td><td>Docker Compose (postgres, backend, frontend, MailHog em perfil <code>dev</code>)</td><td>—</td><td class="ev"><code>docker-compose.yml</code> — <em>não executado</em></td></tr>
   </tbody>
 </table>
@@ -127,7 +130,7 @@ amarradas a IDs em <code>SECURITY_REPORT.md</code>.
 <h2>3. Arquitetura</h2>
 <p>
 Clean Architecture em quatro camadas com dependências apontando para dentro. Os limites são verificados por
-ArquUnit em <code>ArchitectureTest</code> (4 regras, executadas dentro dos 125 testes), o que impede que a camada
+ArquUnit em <code>ArchitectureTest</code> (4 regras, executadas dentro dos 214 testes), o que impede que a camada
 de domínio dependa de Spring ou de detalhes de infraestrutura.
 </p>
 <div class="flow">
@@ -159,40 +162,58 @@ troca de senha obrigatória → filtro devolve 403 PASSWORD_CHANGE_REQUIRED → 
 <table>
   <thead><tr><th>Controle</th><th>Implementação</th><th>Local</th></tr></thead>
   <tbody>
-    <tr><td>Sessão revogável</td><td>Claim <code>sid</code> validado contra <code>auth_session</code>; <code>revokeIfActive</code> torna refresh de uso único</td><td class="ev"><code>AuthSessionService.java:48-137</code>, <code>JwtAuthenticationFilter.java:56-96</code></td></tr>
+    <tr><td>Sessão revogável</td><td>Claim <code>sid</code> validado contra <code>auth_session</code>; <code>revokeIfActive</code> torna refresh de uso único</td><td class="ev"><code>AuthSessionService.java:105-160</code>, <code>JwtAuthenticationFilter.java:56-78</code></td></tr>
     <tr><td>Segredo de refresh</td><td>32 bytes de <code>SecureRandom</code>; persistido somente como hash SHA-256, com índice único</td><td class="ev"><code>SecureRefreshTokenGenerator.java:16-39</code></td></tr>
+    <tr><td>Reuso de refresh = incidente</td><td>Token já consumido revoga <strong>todas</strong> as sessões do usuário e grava <code>REFRESH_TOKEN_REUSE</code> na auditoria; a exceção é lançada fora da transação para não desfazer a revogação</td><td class="ev"><code>AuthSessionService.java:118-131</code>, <code>:155-157</code></td></tr>
+    <tr><td>Expiração do access token</td><td>O parser usa o <code>Clock</code> injetado — a mesma fonte de tempo da emissão — então o teste de expiração é determinístico</td><td class="ev"><code>JwtTokenService.java:65-87</code> (ver <code>SEC-30</code>)</td></tr>
+    <tr><td>Fail-fast do segredo</td><td><code>JWT_SECRET</code> curto ou Base64 malformado derruba o boot com mensagem acionável; fora de <code>dev</code>/<code>test</code> não há segredo efêmero</td><td class="ev"><code>JwtTokenService.java:89-110</code>, <code>ProductionConfigurationValidator.java:32-78</code></td></tr>
     <tr><td>CSRF</td><td>Cookie token repository + matcher de exceção para <code>Authorization: Bearer</code></td><td class="ev"><code>SecurityConfig.java:56-65</code></td></tr>
-    <tr><td>Lockout de login</td><td>5 tentativas por conta, 20 por IP, janela 15′, bloqueio 5′ progressivo (×4), poda a 10 000 entradas; <code>429</code> + <code>Retry-After</code></td><td class="ev"><code>LoginAttemptService.java:40-114</code></td></tr>
-    <tr><td>Política de senha</td><td>12+ caracteres, letra e número, lista de senhas proibidas; troca obrigatória no primeiro acesso; revoga sessões ao trocar</td><td class="ev"><code>ChangePasswordUseCase.java:20-95</code>, <code>PasswordChangeRequiredFilter</code></td></tr>
-    <tr><td>Segredos obrigatórios</td><td><code>JWT_SECRET</code> e <code>POSTGRES_PASSWORD</code> sem default; validador fail-fast no perfil <code>prod</code></td><td class="ev"><code>ProductionConfigurationValidator.java:42-81</code></td></tr>
-    <tr><td>Superfície exposta</td><td>health público sem detalhes; prometheus e Swagger só para ADMIN; Swagger desligado por default em produção</td><td class="ev"><code>SecurityConfig.java:121-136</code>, <code>application-prod.yml</code></td></tr>
-    <tr><td>Auditoria</td><td>Trilha imutável com ator, entidade, ação e correlation id</td><td class="ev"><code>V4</code>/<code>V5</code>, <code>AuditLogController</code></td></tr>
+    <tr><td>Lockout de login</td><td>5 tentativas por conta, 20 por IP, janela 15′, bloqueio progressivo, poda a 10 000 chaves; <code>429</code> + <code>Retry-After</code></td><td class="ev"><code>LoginAttemptService.java:48-141</code></td></tr>
+    <tr><td>Origem do IP</td><td><code>X-Forwarded-For</code> só é aceito com <code>TRUST_FORWARDED_HEADERS=true</code>; sem isso vale <code>getRemoteAddr()</code> — o lockout por IP não é falsificável</td><td class="ev"><code>ClientIpResolver.java:13-30</code> (ver <code>SEC-20</code>)</td></tr>
+    <tr><td>Política de senha</td><td>Uma única regra nos cinco pontos que validam senha (cadastro ADMIN, atualização, troca, seed, request HTTP): 12–72 caracteres, letra e número, lista de senhas proibidas</td><td class="ev"><code>PasswordPolicy.java:15-56</code>, <code>ChangePasswordUseCase.java:25-71</code></td></tr>
+    <tr><td>Troca obrigatória</td><td>Primeiro acesso devolve <code>403 PASSWORD_CHANGE_REQUIRED</code>; trocar senha revoga todas as sessões</td><td class="ev"><code>PasswordChangeRequiredFilter</code>, <code>ChangePasswordUseCase.java:71</code></td></tr>
+    <tr><td>Work factor do BCrypt</td><td>Parametrizável por <code>BCRYPT_STRENGTH</code> com validação <code>@Min(10) @Max(20)</code>, default 12; o custo vai embutido no hash, então hashes antigos continuam válidos</td><td class="ev"><code>SecurityProperties.java:21-25</code>, <code>SecurityBeansConfig.java:14</code>, <code>application.yml:59</code></td></tr>
+    <tr><td>Notificação coerente</td><td>Cancelar o agendamento cancela (<code>CANCELED</code>) a mensagem ainda pendente no outbox; <code>emailQueued</code> ≠ <code>emailSent</code></td><td class="ev"><code>EmailOutboxService.java:36-39</code>, <code>V7__email_outbox_canceled_status.sql</code></td></tr>
+    <tr><td>Higiene de sessão</td><td>Job periódico remove linhas de <code>auth_session</code> revogadas/expiradas, que antes só cresciam</td><td class="ev"><code>AuthSessionCleanupJob.java:21-45</code></td></tr>
+    <tr><td>Segredos obrigatórios</td><td><code>JWT_SECRET</code> e <code>POSTGRES_PASSWORD</code> sem default; validador fail-fast no perfil <code>prod</code></td><td class="ev"><code>ProductionConfigurationValidator.java:32-78</code></td></tr>
+    <tr><td>Superfície exposta</td><td>health público sem detalhes; prometheus e Swagger só para ADMIN; Swagger desligado por default em produção; CORS por lista explícita</td><td class="ev"><code>SecurityConfig.java:72-120</code> (autorização), <code>:122-136</code> (CORS), <code>application-prod.yml</code></td></tr>
+    <tr><td>Auditoria</td><td>Trilha imutável com ator, entidade, ação e correlation id; <code>audit_log.action</code> sem <code>CHECK</code> para admitir novas ações</td><td class="ev"><code>V4</code>/<code>V5</code>, <code>AuditLogController</code></td></tr>
     <tr><td>Frontend</td><td><code>withCredentials</code>, nenhum token em storage, <code>safeRedirect</code> contra open redirect</td><td class="ev"><code>services/api.js</code>, <code>stores/auth.js</code></td></tr>
   </tbody>
 </table>
 
 <h2>5. Evidências medidas</h2>
-<p class="ev">Todos os números abaixo foram re-lidos nesta edição a partir dos artefatos gerados no repositório — não de memória. Nada aqui foi estimado.</p>
+<p class="ev">As métricas de build e cobertura foram re-lidas nesta edição a partir dos artefatos gerados no repositório (<code>surefire-reports</code>, <code>jacoco.csv</code>, relatório do Dependency-Check, <code>npm audit</code>); as de runtime vêm da transcrição da execução desta sessão. Nada aqui foi estimado nem herdado de conversa anterior.</p>
 <table>
   <thead><tr><th>Métrica</th><th>Valor</th><th>Origem</th><th>Status</th></tr></thead>
   <tbody>
-    <tr><td>Testes backend</td><td>125 em 25 classes · 0 falhas · 0 erros · 0 ignorados</td><td class="ev"><code>backend/target/surefire-reports/*.xml</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
-    <tr><td>Cobertura — gate crítico (linhas)</td><td>438/480 = <strong>91,25%</strong> contra mínimo de 80%</td><td class="ev"><code>backend/target/site/jacoco/jacoco.csv</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
-    <tr><td>Cobertura — gate crítico (instruções)</td><td>1966/2240 = <strong>87,77%</strong> (número citado em sessões anteriores)</td><td class="ev">mesmo CSV, contador <code>INSTRUCTION</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
-    <tr><td>Cobertura global</td><td>linhas 80,05% · ramos 56,93%</td><td class="ev">mesmo CSV</td><td><span class="badge b-info">CONTEXTO</span></td></tr>
-    <tr><td>Classes de controle de acesso</td><td><code>LoginAttemptService</code> 69,4% linhas / 57,4% instr · <code>ChangePasswordUseCase</code> 75,6% / 68,5% · <code>JwtTokenService</code> 72,7% linhas</td><td class="ev">mesmo CSV, por classe</td><td><span class="badge b-med">LACUNA — SEC-02</span></td></tr>
-    <tr><td>Processador de outbox</td><td><code>EmailOutboxProcessor</code> com 0% de linhas (49 linhas sem cobertura)</td><td class="ev">mesmo CSV</td><td><span class="badge b-med">LACUNA — SEC-14</span></td></tr>
+    <tr><td>Build completo</td><td><code>./mvnw -B -o clean verify</code> → BUILD SUCCESS em 57,0 s, jar reempacotado, "All coverage checks have been met"</td><td class="ev">transcrição da execução nesta sessão</td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Testes backend</td><td><strong>214</strong> em <strong>35</strong> classes · 0 falhas · 0 erros · 0 ignorados</td><td class="ev"><code>backend/target/surefire-reports/*.xml</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura — gate crítico (linhas)</td><td>516/522 = <strong>98,85%</strong> contra mínimo de 80%</td><td class="ev"><code>backend/target/site/jacoco/jacoco.csv</code>, 4 pacotes de <code>pom.xml:186-205</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura — gate crítico (instruções)</td><td>2445/2471 = <strong>98,95%</strong>. Por pacote: <code>domain.policy</code> 42/42 · <code>usecase.appointment</code> 221/221 · <code>usecase.auth</code> 79/79 · <code>application.service</code> 174/180</td><td class="ev">mesmo CSV, contador <code>INSTRUCTION</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Cobertura global</td><td>linhas <strong>87,59%</strong> (2032/2320) · instruções 86,82% · ramos 71,43% (420/588)</td><td class="ev">mesmo CSV</td><td><span class="badge b-info">CONTEXTO</span></td></tr>
+    <tr><td>Classes de controle de acesso</td><td><code>JwtTokenService</code> 45/45 = <strong>100%</strong> · <code>ChangePasswordUseCase</code> 31/31 = 100% · <code>AuthSessionService</code> 80/81 = 98,8% · <code>LoginAttemptService</code> 66/71 = 93,0% · <code>GlobalExceptionHandler</code> 55/57 = 96,5%</td><td class="ev">mesmo CSV, por classe</td><td><span class="badge b-ok">TRATADO — SEC-02</span></td></tr>
+    <tr><td>Processador de outbox</td><td><code>EmailOutboxProcessor</code> 66/67 = 98,5% linhas (era 0% — 49 linhas sem cobertura)</td><td class="ev">mesmo CSV</td><td><span class="badge b-ok">TRATADO — SEC-14</span></td></tr>
+    <tr><td>Runtime de ponta a ponta</td><td><strong>68/68</strong> verificações contra o jar de produção em <code>:8090</code>, Postgres real (schema isolado <code>smoke</code>) e SMTP de escuta na <code>:1025</code>: CSRF mascarado, cookies, rotação, reuso + cascata (3/3 revogadas), <code>429</code> + <code>Retry-After: 300</code>, <code>PASSWORD_CHANGE_REQUIRED</code>, RBAC, outbox <code>PENDING→SENT</code>, supressão em cancelamento, política de senha, bundle DOMPurify 3.4.17</td><td class="ev">transcrição <code>smoke-runtime-jar-214.txt</code> (harness fora do repositório — ver <code>SEC-09</code>)</td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>Migrações Flyway</td><td>V1–V7 aplicadas sobre Postgres real no esquema isolado do smoke; boot com <code>ddl-auto: validate</code> sem divergência</td><td class="ev">log do mesmo boot que serviu as 68 verificações</td><td><span class="badge b-ok">MEDIDO</span></td></tr>
     <tr><td>Dependências frontend — produção</td><td><code>npm audit --omit=dev</code> → <strong>found 0 vulnerabilities</strong> (re-executado nesta edição)</td><td class="ev"><code>frontend/package-lock.json</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
-    <tr><td>Dependências frontend — dev</td><td>12 vulnerabilidades moderadas em árvore de desenvolvimento; sem efeito no bundle entregue</td><td class="ev"><code>npm audit</code> completo</td><td><span class="badge b-info">ACEITO</span></td></tr>
-    <tr><td>E2E frontend</td><td>último run <code>"status": "passed", "failedTests": []</code> (fluxo de autenticação)</td><td class="ev"><code>frontend/test-results/.last-run.json</code></td><td><span class="badge b-ok">MEDIDO</span></td></tr>
-    <tr><td>Dependências backend (SCA)</td><td>sem relatório <code>dependency-check</code>; exige chave NVD</td><td class="ev">perfil <code>security</code> em <code>backend/pom.xml</code></td><td><span class="badge b-high">NÃO EXECUTADO — SEC-03</span></td></tr>
-    <tr><td>Docker Compose / CI GitHub Actions</td><td>arquivos presentes e revisados; nenhuma execução nesta máquina</td><td class="ev"><code>docker-compose.yml</code>, <code>.github/workflows/ci.yml</code></td><td><span class="badge b-high">NÃO VALIDADO — SEC-06</span></td></tr>
+    <tr><td>Dependências frontend — dev</td><td>12 vulnerabilidades moderadas (<code>minimatch</code>/<code>glob</code>/<code>js-beautify</code>/<code>eslint</code>), todas em árvore de desenvolvimento; correção exige <code>npm audit fix --force</code> (quebra maior). Sem efeito no bundle entregue</td><td class="ev"><code>npm audit --json</code> → <code>metadata.vulnerabilities</code> total 12 / high 0 / critical 0</td><td><span class="badge b-info">ACEITO</span></td></tr>
+    <tr><td>Dependências backend (SCA)</td><td>OWASP Dependency-Check 12.2.2 com <code>failBuildOnCVSS=7</code>: <strong>86 componentes avaliados, 0 vulneráveis</strong>, análise em 16 s. O achado original (DOMPurify 3.4.16 no webjar <code>swagger-ui</code> 5.34.0) foi corrigido para o webjar 5.34.1; a execução de controle com o webjar antigo <strong>ainda falha</strong> o build — prova de que nada foi suprimido</td><td class="ev"><code>backend/target/dependency-check/dependency-check-report.{html,json}</code> regenerados nesta edição (14:21)</td><td><span class="badge b-ok">MEDIDO</span></td></tr>
+    <tr><td>E2E frontend</td><td>o artefato <code>.last-run.json</code> é de <strong>2026-11-02 22:19</strong> (<code>"status": "passed"</code>) e <strong>não</strong> foi re-executado nesta sessão. Além disso a suíte mocka <code>/api/auth/*</code> — foi exatamente isso que mascarou o defeito de CSRF depois visível em runtime</td><td class="ev"><code>frontend/test-results/.last-run.json</code> (data de modificação do arquivo)</td><td><span class="badge b-high">NÃO RE-EXECUTADO — SEC-06</span></td></tr>
+    <tr><td>Docker Compose / Dockerfile / nginx / CI</td><td>arquivos presentes e revisados — inclusive <code>frontend/nginx.conf</code>, cujo <code>X-Forwarded-For</code> foi padronizado nos blocos com proxy para a API; nenhuma execução nesta máquina: sem binário Docker nem nginx, e o <code>.github/workflows/ci.yml</code> nunca rodou sobre este estado (81 entradas sem commit)</td><td class="ev"><code>docker-compose.yml</code>, <code>.github/workflows/ci.yml</code>, <code>frontend/nginx.conf</code></td><td><span class="badge b-high">NÃO VALIDADO — SEC-06 / SEC-23</span></td></tr>
   </tbody>
 </table>
 <div class="callout warn">
-<strong>Precisão de número.</strong> A métrica citada como "cobertura crítica 87,77%" corresponde a <em>instruções</em>.
-O gate do build é avaliado por <em>linhas</em>, cujo valor atual nos quatro pacotes críticos é 91,25%.
-Ambos os números são apresentados nesta entrega para evitar ambiguidade em revisões futuras.
+<strong>Precisão de número.</strong> A métrica citada em edições anteriores como "cobertura crítica 87,77%" corresponde a
+<em>instruções</em>. O gate do build é avaliado por <em>linhas</em>, cujo valor atual nos quatro pacotes críticos é
+<strong>98,85%</strong> (o de instruções é 98,95%). Ambos os números aparecem nesta entrega para evitar ambiguidade em
+revisões futuras.
+</div>
+<div class="callout warn">
+<strong>Limitação que continua.</strong> O gate do JaCoCo é configurado por <em>agregado de pacote</em>
+(<code>pom.xml:186-205</code>): um pacote pode atingir 80% com uma classe crítica em 40%. A correção de <code>SEC-02</code>
+foi medir e publicar a cobertura <em>por classe</em> (seção 5) e cobri-las com testes — não mudar o mecanismo do gate.
+Trocar o gate para <code>CLASS</code> continua sendo decisão de iteração, junto com a medição do custo do BCrypt sob carga.
 </div>
 
 <h2>6. Achados abertos (resumo)</h2>
@@ -200,27 +221,46 @@ Ambos os números são apresentados nesta entrega para evitar ambiguidade em rev
 <table>
   <thead><tr><th>ID</th><th>Criticidade</th><th>Achado</th><th>Estado</th></tr></thead>
   <tbody>
-    <tr><td>SEC-01</td><td><span class="badge b-high">Alto</span></td><td>Lockout de login é local à instância (memória) — não compartilhado e zerado no restart</td><td>PARCIAL</td></tr>
-    <tr><td>SEC-03</td><td><span class="badge b-high">Alto</span></td><td>Análise de composição do backend nunca executada; não é possível afirmar ausência de CVEs</td><td>ABERTO</td></tr>
-    <tr><td>SEC-06</td><td><span class="badge b-high">Alto</span></td><td>Sem validação de runtime: Docker indisponível, CI nunca rodou sobre este estado, e2e cobre só autenticação</td><td>ABERTO</td></tr>
-    <tr><td>SEC-02</td><td><span class="badge b-med">Médio</span></td><td>Gate por agregado de pacote oculta cobertura fraca exatamente nas classes de controle de acesso</td><td>ABERTO</td></tr>
-    <tr><td>SEC-04</td><td><span class="badge b-med">Médio</span></td><td>Reuso de refresh token não dispara revogação em cascata nem evento de auditoria</td><td>ABERTO</td></tr>
-    <tr><td>SEC-05</td><td><span class="badge b-med">Médio</span></td><td>Política de senha assimétrica: ADMIN cria com 8 caracteres, usuário troca exigindo 12</td><td>ABERTO</td></tr>
-    <tr><td>SEC-07</td><td><span class="badge b-info">Baixo</span></td><td>Work factor do BCrypt fixo em 10, não parametrizável por configuração</td><td>ABERTO</td></tr>
+    <tr><td>SEC-01</td><td><span class="badge b-high">Alto</span></td><td>Lockout de login é local à instância (memória) — não compartilhado e zerado no restart</td><td>PARCIAL — decisão de arquitetura pendente (Redis ou tabela)</td></tr>
+    <tr><td>SEC-03</td><td><span class="badge b-high">Alto</span></td><td>Análise de composição do backend nunca executada; não era possível afirmar ausência de CVEs</td><td>TRATADO — 86 componentes, 0 vulneráveis</td></tr>
+    <tr><td>SEC-15</td><td><span class="badge b-high">Alto</span></td><td>DOMPurify 3.4.16 embutido nos arquivos JavaScript do webjar <code>org.webjars:swagger-ui</code> servidos em <code>/swagger-ui/**</code> — CVE-2026-116804 (critical), CVE-2026-116803 (high), CVE-2026-116802 (low), detectados pelo analisador RetireJS</td><td>TRATADO — webjar pinado em 5.34.1; o controle negativo sem o pin ainda falha o build</td></tr>
+    <tr><td>SEC-16</td><td><span class="badge b-high">Alto</span></td><td>Cancelar o agendamento não suprimia a confirmação de e-mail ainda pendente no outbox</td><td>TRATADO — estado <code>CANCELED</code> (<code>V7</code>), medido em runtime</td></tr>
+    <tr><td>SEC-20</td><td><span class="badge b-high">Alto</span></td><td>O IP usado no lockout por IP vinha de <code>X-Forwarded-For</code> sem controle — falsificável pelo cliente</td><td>TRATADO — só com <code>TRUST_FORWARDED_HEADERS=true</code></td></tr>
+    <tr><td>SEC-02</td><td><span class="badge b-med">Médio</span></td><td>Gate por agregado de pacote oculta cobertura fraca exatamente nas classes de controle de acesso</td><td>TRATADO — todas as cinco acima de 93%; o gate continua por pacote (ver seção 5)</td></tr>
+    <tr><td>SEC-04</td><td><span class="badge b-med">Médio</span></td><td>Reuso de refresh token não dispara revogação em cascata nem evento de auditoria</td><td>TRATADO — cascata + <code>REFRESH_TOKEN_REUSE</code>; 3 sessões revogadas em runtime</td></tr>
+    <tr><td>SEC-05</td><td><span class="badge b-med">Médio</span></td><td>Política de senha assimétrica: ADMIN cria com 8 caracteres, usuário troca exigindo 12</td><td>TRATADO — <code>PasswordPolicy</code> único nos cinco pontos que validam senha</td></tr>
+    <tr><td>SEC-06</td><td><span class="badge b-med">Médio</span></td><td>Validação de runtime não realizada</td><td>PARCIAL — 68/68 contra o jar em Postgres real; resta Docker/nginx/CI/E2E</td></tr>
+    <tr><td>SEC-14</td><td><span class="badge b-med">Médio</span></td><td><code>EmailOutboxProcessor</code> sem teste próprio (0% de cobertura): a entrega assíncrona garantida pelo ADR-003 só existe como código</td><td>TRATADO — 98,5% das linhas e contrato exercitado em runtime</td></tr>
+    <tr><td>SEC-17</td><td><span class="badge b-med">Médio</span></td><td>Processador do outbox misturava envio SMTP e escrita de estado na mesma transação</td><td>TRATADO — envio fora da transação, backoff com teto de 3600 s</td></tr>
+    <tr><td>SEC-19</td><td><span class="badge b-med">Médio</span></td><td>Linhas de <code>auth_session</code> revogadas/expiradas nunca eram removidas</td><td>TRATADO — <code>AuthSessionCleanupJob</code> (12 h, retenção 7 d)</td></tr>
+    <tr><td>SEC-21</td><td><span class="badge b-med">Médio</span></td><td>KPIs do relatório vinham da página visada no frontend</td><td>TRATADO</td></tr>
+    <tr><td>SEC-23</td><td><span class="badge b-med">Médio</span></td><td><code>frontend/nginx.conf</code> encadeava <code>X-Forwarded-For</code> de forma inconsistente entre blocos</td><td><span class="badge b-med">IMPLEMENTADO, NÃO VALIDADO</span> — sem nginx nem Docker nesta máquina</td></tr>
+    <tr><td>SEC-24</td><td><span class="badge b-med">Médio</span></td><td><code>.env.example</code> publicava a senha de seed e ligava o seed por default</td><td>TRATADO — valor não reproduzido neste documento; rotacionar se chegou a ambiente real</td></tr>
+    <tr><td>SEC-30</td><td><span class="badge b-med">Médio</span></td><td>A validação do access token usava o relógio interno do JJWT, não o <code>Clock</code> injetado — e a expiração de 15′ não tinha <strong>nenhum</strong> teste automatizado</td><td>TRATADO — parser com a mesma fonte de tempo da emissão + 12 testes determinísticos</td></tr>
+    <tr><td>SEC-07</td><td><span class="badge b-info">Baixo</span></td><td>Work factor do BCrypt fixo, não parametrizável por configuração</td><td>TRATADO — <code>BCRYPT_STRENGTH</code> com <code>@Min(10) @Max(20)</code>, default 12</td></tr>
     <tr><td>SEC-08</td><td><span class="badge b-info">Baixo</span></td><td><code>email_outbox</code> retém destinatário e erros sem política de expurgo</td><td>ABERTO</td></tr>
-    <tr><td>SEC-09</td><td><span class="badge b-info">Baixo</span></td><td>Credencial de fixture <code>LoginUseCaseTest.java:60,66,149</code> com aparência de segredo real</td><td>ABERTO</td></tr>
+    <tr><td>SEC-09</td><td><span class="badge b-info">Baixo</span></td><td>Credencial de fixture em <code>LoginUseCaseTest.java</code> com aparência de segredo real</td><td>ABERTO — não é segredo de produção; o harness de smoke também fica fora do repositório por isso</td></tr>
+    <tr><td>SEC-18</td><td><span class="badge b-info">Baixo</span></td><td><code>Accept</code> incompatível derrubava o handler em <code>500</code></td><td>TRATADO — responde <code>406</code></td></tr>
+    <tr><td>SEC-22</td><td><span class="badge b-info">Baixo</span></td><td>Lista de senhas proibidas era inalcançável na troca de senha</td><td>TRATADO</td></tr>
+    <tr><td>SEC-25</td><td><span class="badge b-info">Baixo</span></td><td>Campos do formulário de usuários sem rótulo/descrição acessível</td><td>TRATADO</td></tr>
+    <tr><td>SEC-26</td><td><span class="badge b-info">Baixo</span></td><td>Entidade e repositório contradiziam a migração <code>V5</code></td><td>TRATADO</td></tr>
+    <tr><td>SEC-27</td><td><span class="badge b-info">Baixo</span></td><td>Código morto no núcleo de autenticação/agendamento</td><td>TRATADO — <code>LoginResult.java</code> removido</td></tr>
+    <tr><td>SEC-28</td><td><span class="badge b-info">Baixo</span></td><td>Erros <code>400</code> de validação não deixavam rastro no log</td><td>TRATADO</td></tr>
+    <tr><td>SEC-31</td><td><span class="badge b-info">Baixo</span></td><td><code>JWT_SECRET</code> malformado derrubava o boot com <code>DecodingException: Illegal base64 character</code> em vez da mensagem acionável do fail-fast</td><td>TRATADO — <code>catch</code> de <code>JwtException</code> em <code>JwtTokenService.java:103</code></td></tr>
     <tr><td>SEC-10/11/12</td><td><span class="badge b-info">Info</span></td><td><code>SameSite</code> divergente por perfil, token no corpo só em dev, CORS por lista explícita</td><td>INFORMATIVO</td></tr>
-    <tr><td>SEC-13</td><td><span class="badge b-ok">Baixo</span></td><td>Migração <code>V5</code> destrutiva (<code>DROP TABLE capacity_settings</code>) — justificada no SQL e no runbook</td><td>TRATADO</td></tr>
-    <tr><td>SEC-14</td><td><span class="badge b-med">Médio</span></td><td><code>EmailOutboxProcessor</code> sem teste próprio (0% de cobertura): a entrega assíncrona garantida pelo ADR-003 só existe como código</td><td>ABERTO</td></tr>
+    <tr><td>SEC-13</td><td><span class="badge b-ok">Info</span></td><td>Migração <code>V5</code> destrutiva (<code>DROP TABLE capacity_settings</code>) — justificada no SQL e no runbook</td><td>TRATADO</td></tr>
+    <tr><td>SEC-29</td><td><span class="badge b-ok">—</span></td><td>(Meta-evidência) o item "reuso de refresh → <code>401</code>" do checklist de runtime era <strong>vacuoso</strong>: o cookie de domínio <code>localhost</code> nunca era enviado e o <code>401</code> vinha de outra causa</td><td>CORRIGIDO — evidência revalidada; foi preciso isso para medir a cascata de <code>SEC-04</code></td></tr>
   </tbody>
 </table>
 
 <h2>7. O que ainda não se pode afirmar</h2>
 <ul>
-  <li><strong>Ausência de CVEs no backend.</strong> Nunca executado; requer <code>NVD_API_KEY</code> e o perfil Maven <code>security</code>.</li>
-  <li><strong>Comportamento ponta a ponta dos controles.</strong> CSRF, <code>429</code>, rotação de refresh e outbox são verificados por testes unitários e de integração com Postgres embarcado, não contra o stack completo do compose.</li>
-  <li><strong>Deploy em produção.</strong> Nenhum ambiente real recebeu esta versão; o checklist de go-live está em <code>docs/operacao/RUNBOOK.md</code>, seção 9.</li>
-  <li><strong>Escala horizontal.</strong> Rate limiting em memória e outbox sem <em>claim</em> distribuído limitam a réplica a uma instância ativa por restrição deliberada (SEC-01, ADR-003).</li>
+  <li><strong>Ausência de CVEs no backend com base do NVD fresca.</strong> A afirmação tem evidência — 86 componentes avaliados, 0 vulneráveis com <code>failBuildOnCVSS=7</code> (o único achado, DOMPurify 3.4.16 no webjar do Swagger UI, foi corrigido). Ressalva: a varredura local usou o cache da base do NVD, pois não há <code>NVD_API_KEY</code> nesta máquina; a frescura plena vem do job agendado do CI. O achado que existia foi detectado pelo analisador RetireJS, que não depende do NVD.</li>
+  <li><strong>Comportamento do stack completo.</strong> CSRF, <code>429</code>, rotação, cascata de revogação, outbox e política de senha <em>foram</em> exercitados contra o jar de produção com Postgres real e SMTP de escuta (68/68). O que continua afirmável só por leitura de arquivo é o efeito do <code>docker-compose.yml</code>, dos <code>Dockerfile</code>s e do <code>frontend/nginx.conf</code> — sem Docker nem nginx nesta máquina. O <code>fail-fast</code> de configuração em <code>prod</code> tem teste unitário com ambiente simulado, não um boot real com perfil <code>prod</code>.</li>
+  <li><strong>Playwright E2E.</strong> A suíte não foi re-executada nesta sessão e mocka <code>/api/auth/*</code>; o artefato <code>.last-run.json</code> é de 2026-11-02 22:19. Ela não cobre o que o smoke de runtime cobriu.</li>
+  <li><strong>Custo do BCrypt sob carga.</strong> O work factor agora é configurável e validado, mas não há medição de latência por login com 12/14/16 — só a constatação de que 12 é o default seguro.</li>
+  <li><strong>Deploy em produção e escala horizontal.</strong> Nenhum ambiente real recebeu esta versão (checklist de go-live em <code>docs/operacao/RUNBOOK.md</code> §9). Rate limiting em memória e outbox sem <em>claim</em> distribuído limitam a réplica a uma instância ativa por restrição deliberada (<code>SEC-01</code>, ADR-003).</li>
+  <li><strong><code>X-Correlation-ID</code> em produção.</strong> O filtro existe e o campo aparece nos logs ECS; a propagação ponta a ponta pelo proxy nginx não foi medida (depende do mesmo item não validado acima).</li>
 </ul>
 
 <h2>8. Entregáveis desta documentação</h2>
@@ -228,7 +268,7 @@ Ambos os números são apresentados nesta entrega para evitar ambiguidade em rev
   <thead><tr><th>Artefato</th><th>Conteúdo</th></tr></thead>
   <tbody>
     <tr><td><code>README.md</code></td><td>Visão, arquitetura, regras de negócio, execução sem Docker, variáveis de ambiente, API, migrações, testes e limitações</td></tr>
-    <tr><td><code>SECURITY_REPORT.md</code></td><td>Superfície por rota, 10 grupos de controles, evidências, 14 achados, mapa da auditoria anterior e plano de re-teste</td></tr>
+    <tr><td><code>SECURITY_REPORT.md</code></td><td>Superfície por rota, grupos de controles, evidências (incl. as 68 verificações de runtime), <code>SEC-01</code> a <code>SEC-31</code> com estado, seção 11 com a correção de dependência (DOMPurify/Swagger UI) e plano de re-teste</td></tr>
     <tr><td><code>docs/arquitetura/</code></td><td>Índice + ADR-001 a ADR-006, todos com status Aceita e evidência em arquivo:linha</td></tr>
     <tr><td><code>docs/operacao/RUNBOOK.md</code></td><td>Perfis, provisionamento, rotinas com SQL real, deploy e rollback, incidentes, escalabilidade e diagnóstico</td></tr>
     <tr><td><code>docs/entrega/ENTREGA.html</code> · este PDF</td><td>Documento de entrega para revisão técnica e de negócio</td></tr>
@@ -241,16 +281,18 @@ Ambos os números são apresentados nesta entrega para evitar ambiguidade em rev
 <table>
   <thead><tr><th>Prioridade</th><th>Ação</th><th>Fecha</th></tr></thead>
   <tbody>
-    <tr><td>P0 antes do go-live</td><td>Executar Dependency-Check com chave NVD e triar; rodar o stack real via compose e validar login + CSRF + <code>429</code> + criação de agendamento ponta a ponta</td><td>SEC-03, SEC-06</td></tr>
-    <tr><td>P0 antes do go-live</td><td>Commit de checkpoint do estado atual e execução da CI sobre ele</td><td>SEC-06</td></tr>
-    <tr><td>P1 primeira iteração</td><td>Gate de cobertura por classe nas 4 classes de controle de acesso; testes de lockout progressivo, poda e do processador de outbox</td><td>SEC-02, SEC-14</td></tr>
-    <tr><td>P1 primeira iteração</td><td>Revogação em cascata no reuso de refresh + evento de auditoria; unificar política de senha em 12+ no cadastro e na troca</td><td>SEC-04, SEC-05</td></tr>
-    <tr><td>P2 conforme escala</td><td>Store compartilhado de tentativas de login (Redis ou tabela) quando houver mais de uma réplica; parametrizar BCrypt; retenção/expurgo de outbox e auditoria; secret-scan no repositório</td><td>SEC-01, SEC-07, SEC-08, SEC-09</td></tr>
+    <tr><td>P0 antes do go-live</td><td>Commit de checkpoint do estado atual (81 entradas) e execução da CI sobre ele — o <code>ci.yml</code> versionado nunca rodou nesta base</td><td>SEC-06 (CI)</td></tr>
+    <tr><td>P0 antes do go-live</td><td>Rodar o stack real via <code>docker compose up</code> numa máquina com Docker, validar os 4 serviços <em>healthy</em> e o login pelo <code>http://localhost</code> com <code>AUTH_COOKIE_SECURE=false</code> (ou HTTPS); <code>nginx -t</code> dentro do container do frontend</td><td>SEC-06 (Docker), SEC-23</td></tr>
+    <tr><td>P0 antes do go-live</td><td>Reexecutar <code>npm run test:e2e</code> contra o backend real, sem mock de <code>/api/auth/*</code> — a suíte mascarou o defeito de CSRF que só apareceu em runtime</td><td>SEC-06 (E2E)</td></tr>
+    <tr><td>P0 antes do go-live</td><td>Rodar o Dependency-Check no job agendado do CI com <code>NVD_API_KEY</code> (base do NVD fresca; a varredura local usou cache)</td><td>SEC-03 (frescura)</td></tr>
+    <tr><td>P1 primeira iteração</td><td>Medir o custo do BCrypt por login em <code>12</code>/<code>14</code>/<code>16</code> sob carga e registrar a latência aceitável; considerar gate de cobertura por <code>CLASS</code> nos pacotes críticos</td><td>SEC-07 (medição), SEC-02 (mecanismo)</td></tr>
+    <tr><td>P1 primeira iteração</td><td>Definir retenção/expurgo para <code>email_outbox</code> e <code>audit_log</code> e trocar a credencial de fixture por algo claramente fictício</td><td>SEC-08, SEC-09</td></tr>
+    <tr><td>P2 conforme escala</td><td>Store compartilhado de tentativas de login (Redis ou tabela) quando houver mais de uma réplica; <em>claim</em> distribuído no outbox; secret-scan no repositório</td><td>SEC-01, SEC-09</td></tr>
   </tbody>
 </table>
 
 <footer>
-  Rede Krill Scheduling · documento de entrega gerado em 02/11/2026 · convertida para PDF com Chrome headless a partir de
+  Rede Krill Scheduling · documento de entrega gerado em 03/11/2026 (edição das 214 verificações automatizadas e do smoke de runtime 68/68) · convertido para PDF com Chrome headless a partir de
   <code>docs/entrega/ENTREGA.html</code>. Todos os valores medidos são reproduzíveis com os comandos de
   <code>docs/operacao/RUNBOOK.md</code>, seção 9. Itens não executados estão marcados como não validados.
 </footer>

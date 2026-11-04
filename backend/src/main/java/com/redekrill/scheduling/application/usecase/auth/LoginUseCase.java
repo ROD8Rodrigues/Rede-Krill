@@ -1,3 +1,24 @@
+/*
+ * O login, na ordem que a segurança pede.
+ *
+ * Primeiro a trava, depois a conta, por último a senha. Nessa ordem, um usuário
+ * bloqueado nem chega à comparação de hash — e o custo de BCrypt é justamente o que
+ * se quer evitar quando alguém martela a porta.
+ *
+ * As duas recusas de credencial devolvem exatamente a mesma frase. Diferenciar
+ * "e-mail não existe" de "senha errada" é entregar ao atacante um catálogo de
+ * contas válidas. O que muda fica no log de auditoria, que ninguém vê: tentativa com
+ * usuário inexistente, tentativa com senha inválida e bloqueio por excesso têm ações
+ * distintas.
+ *
+ * Toda recusa conta como falha, para a conta e para o IP; o sucesso zera o contador
+ * da conta, mas não o do IP — o endereço continua devendo as tentativas que fez.
+ * O e-mail é normalizado para minúsculas antes de tudo, porque a trava precisa bater
+ * com a chave usada na verificação.
+ *
+ * A sessão é criada por AuthSessionService, não aqui: é ele que conhece hash de
+ * refresh, expiração e rotação.
+ */
 package com.redekrill.scheduling.application.usecase.auth;
 
 import com.redekrill.scheduling.application.dto.auth.LoginCommand;
@@ -16,6 +37,9 @@ import com.redekrill.scheduling.domain.repository.UserRepository;
 import java.util.Locale;
 import java.util.Optional;
 
+/**
+ * Autenticação com contagem de tentativas e criação de sessão.
+ */
 public class LoginUseCase {
 
     private static final String GENERIC_FAILURE = "E-mail ou senha inválidos.";

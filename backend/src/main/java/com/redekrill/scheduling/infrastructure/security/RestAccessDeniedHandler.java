@@ -1,3 +1,14 @@
+/*
+ * O 403 do Spring Security: identidade válida, permissão insuficiente.
+ *
+ * A diferença para o 401 é essa: aqui a pessoa se autenticou, mas a rota exige ROLE_ADMIN
+ * e o papel não bate. O corpo traz code ACCESS_DENIED, que é o que separa este caso do
+ * PASSWORD_CHANGE_REQUIRED — os dois são 403, e a distinção não pode depender da mensagem.
+ *
+ * Também audita com action ACCESS_DENIED, registrando método HTTP e caminho. Se a
+ * auditoria lançar exceção, o erro vai para o log e o 403 é escrito normalmente: a
+ * decisão de negar acesso já foi tomada pela cadeia de filtros.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.service.AuditService;
@@ -19,6 +30,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
+/**
+ * Manipulador de acesso negado: responde 403 em JSON em vez de redirecionar para login.
+ * Não define as regras de papel por rota; apenas executa a consequência de faltar papel.
+ */
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 

@@ -1,3 +1,18 @@
+/*
+ * O usuário: a tabela onde mora a única credencial do sistema.
+ *
+ * password_hash é texto de 100 caracteres, e é sempre hash de BCrypt — nunca senha, nunca
+ * cifra reversível. O tamanho tem folga porque o formato do BCrypt é fixo em 60, e a
+ * coluna sobreviveria a uma troca de algoritmo sem reconstruir a tabela.
+ *
+ * must_change_password é a coluna que muda a experiência de quem entra: ela acende quando a
+ * senha foi definida por outra pessoa (cadastro pelo ADMIN, reset por edição) e faz o
+ * filtro de troca obrigatória segurar o usuário até ele escolher a própria senha.
+ *
+ * active desliga sem apagar. Contas ficam na tabela porque o histórico de agendamentos e de
+ * auditoria referencia o e-mail da pessoa, e versão com @Version é o que impede duas
+ * edições simultâneas de se sobrescreverem.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
 import com.redekrill.scheduling.domain.model.Role;
@@ -21,6 +36,9 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Mapeamento JPA da tabela users.
+ */
 public class UserJpaEntity {
 
     @Id

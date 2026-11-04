@@ -1,3 +1,23 @@
+/*
+ * O único lugar onde caso de uso e Spring se encontram.
+ *
+ * Os casos de uso são classes planas: sem @Service, sem @Component, sem nada do
+ * framework. Isso não é purismo — é o que permite instanciá-los num teste unitário com
+ * falsos nos ports e nenhum contexto carregado. O preço é alguém ter que escrever o
+ * "new" de cada um, e esse alguém é este arquivo: os 33 beans de aplicação e domínio
+ * montados à mão. Os seis que faltam estão espalhados por SecurityConfig (3), ClockConfig,
+ * SecurityBeansConfig e OpenApiConfig — cada um produzindo objeto de infraestrutura, não
+ * de caso de uso.
+ *
+ * A convenção é sempre a mesma: cada bean recebe pelo construtor as interfaces de que
+ * precisa — repositórios, ports, policies, Clock, propriedades — e o Spring entrega as
+ * implementações que vivem em infrastructure. Não há uma linha de condição ou laço aqui:
+ * se uma montagem pedisse um if, essa decisão já seria regra de negócio e teria que
+ * subir para um serviço de aplicação.
+ *
+ * Quando um caso de uso novo aparecer, é aqui que ele nasce e é aqui que a dependência
+ * nova aparece primeiro. Se ela não couber em uma linha de new, a arquitetura pediu algo.
+ */
 package com.redekrill.scheduling.infrastructure.config;
 
 import com.redekrill.scheduling.application.port.PasswordHasher;
@@ -36,6 +56,7 @@ import com.redekrill.scheduling.application.usecase.user.CreateUserUseCase;
 import com.redekrill.scheduling.application.usecase.user.ListUsersUseCase;
 import com.redekrill.scheduling.application.usecase.user.UpdateUserUseCase;
 import com.redekrill.scheduling.domain.policy.CapacityPolicy;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.domain.repository.AuditLogRepository;
 import com.redekrill.scheduling.domain.repository.AuthSessionRepository;
@@ -51,12 +72,21 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
+/**
+ * Montagem manual dos beans de aplicação. Não contém regra de negócio: só decide quais
+ * implementações entram nos construtores dos casos de uso.
+ */
 @Configuration
 public class UseCaseConfig {
 
     @Bean
     public CapacityPolicy capacityPolicy() {
         return new CapacityPolicy();
+    }
+
+    @Bean
+    public PasswordPolicy passwordPolicy() {
+        return new PasswordPolicy();
     }
 
     @Bean
@@ -82,7 +112,8 @@ public class UseCaseConfig {
                                                  RefreshTokenGenerator refreshTokenGenerator,
                                                  TransactionRunner transactionRunner,
                                                  Clock clock,
-                                                 AuthProperties authProperties) {
+                                                 AuthProperties authProperties,
+                                                 AuditService auditService) {
         return new AuthSessionService(
                 authSessionRepository,
                 userRepository,
@@ -90,7 +121,8 @@ public class UseCaseConfig {
                 refreshTokenGenerator,
                 transactionRunner,
                 clock,
-                authProperties.refreshExpiration()
+                authProperties.refreshExpiration(),
+                auditService
         );
     }
 
@@ -120,9 +152,10 @@ public class UseCaseConfig {
                                                        AuthSessionService authSessionService,
                                                        AuditService auditService,
                                                        TransactionRunner transactionRunner,
-                                                       Clock clock) {
+                                                       Clock clock,
+                                                       PasswordPolicy passwordPolicy) {
         return new ChangePasswordUseCase(userRepository, passwordHasher, authSessionService,
-                auditService, transactionRunner, clock);
+                auditService, transactionRunner, clock, passwordPolicy);
     }
 
     @Bean
@@ -135,9 +168,11 @@ public class UseCaseConfig {
                                                PasswordHasher passwordHasher,
                                                AuditService auditService,
                                                TransactionRunner transactionRunner,
-                                               Clock clock) {
+                                               Clock clock,
+                                               PasswordPolicy passwordPolicy) {
         return new CreateUserUseCase(
-                userRepository, passwordHasher, auditService, transactionRunner, clock);
+                userRepository, passwordHasher, auditService, transactionRunner, clock,
+                passwordPolicy);
     }
 
     @Bean
@@ -146,10 +181,11 @@ public class UseCaseConfig {
                                                AuditService auditService,
                                                TransactionRunner transactionRunner,
                                                AuthSessionService authSessionService,
-                                               Clock clock) {
+                                               Clock clock,
+                                               PasswordPolicy passwordPolicy) {
         return new UpdateUserUseCase(
                 userRepository, passwordHasher, auditService, transactionRunner,
-                authSessionService, clock);
+                authSessionService, clock, passwordPolicy);
     }
 
     @Bean
@@ -302,10 +338,12 @@ public class UseCaseConfig {
             AppointmentRepository appointmentRepository,
             UserRepository userRepository,
             AuditService auditService,
+            EmailOutboxService emailOutboxService,
             TransactionRunner transactionRunner,
             Clock clock) {
         return new CancelAppointmentUseCase(
-                appointmentRepository, userRepository, auditService, transactionRunner, clock);
+                appointmentRepository, userRepository, auditService, emailOutboxService,
+                transactionRunner, clock);
     }
 
     @Bean

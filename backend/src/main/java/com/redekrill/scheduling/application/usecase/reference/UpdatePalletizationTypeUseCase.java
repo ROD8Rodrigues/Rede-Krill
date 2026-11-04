@@ -1,3 +1,18 @@
+/*
+ * Edição de um tipo de paletização, onde o multiplicador só obedece a quem pode
+ * escolher.
+ *
+ * Se o tipo for um dos obrigatórios, o valor enviado é ignorado em silêncio e o
+ * anterior continua no lugar. Não é descuido: 1 e 2 vêm da regra de negócio, e
+ * aceitar um número aleatório pela rota de edição quebraria a contagem de capacidade
+ * de quem já calculou os pallets da faixa achando em outra base.
+ *
+ * A unicidade do nome compara ignorando maiúsculas e excluindo o próprio id, senão
+ * salvar sem mexer no nome recusaria o próprio nome.
+ *
+ * A substituição é por construtor, não por setter. O modelo PalletizationType é
+ * imutável, e o registro novo só existe depois de passar pelas validações dele.
+ */
 package com.redekrill.scheduling.application.usecase.reference;
 
 import com.redekrill.scheduling.application.dto.reference.PalletizationTypeResult;
@@ -10,6 +25,9 @@ import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.PalletizationType;
 import com.redekrill.scheduling.domain.repository.PalletizationTypeRepository;
 
+/**
+ * Atualiza nome e, quando livre, o multiplicador de um tipo.
+ */
 public class UpdatePalletizationTypeUseCase {
 
     private final PalletizationTypeRepository repository;

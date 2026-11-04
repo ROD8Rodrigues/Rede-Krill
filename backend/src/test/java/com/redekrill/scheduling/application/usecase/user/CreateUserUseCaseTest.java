@@ -9,6 +9,7 @@ import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.Role;
 import com.redekrill.scheduling.domain.model.User;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 import com.redekrill.scheduling.support.ImmediateTransactionRunner;
 import com.redekrill.scheduling.support.TestFixtures;
@@ -47,18 +48,19 @@ class CreateUserUseCaseTest {
         useCase = new CreateUserUseCase(
                 userRepository, passwordHasher, auditService,
                 new ImmediateTransactionRunner(),
-                Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC)
+                Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC),
+                new PasswordPolicy()
         );
     }
 
     @Test
     void createsUserNormalizingEmailAndRecordingAudit() {
-        when(passwordHasher.hash("Senha@123")).thenReturn("hashed");
+        when(passwordHasher.hash("SenhaForte@1234")).thenReturn("hashed");
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0, User.class).withId(5L));
 
         UserResult result = useCase.execute(new CreateUserCommand(
-                "Operador", "  Operador@RedeKrill.com ", "Senha@123", Role.USER, "admin@redekrill.com"));
+                "Operador", "  Operador@RedeKrill.com ", "SenhaForte@1234", Role.USER, "admin@redekrill.com"));
 
         assertThat(result.id()).isEqualTo(5L);
         assertThat(result.email()).isEqualTo("operador@redekrill.com");
@@ -83,7 +85,7 @@ class CreateUserUseCaseTest {
     @Test
     void rejectsMissingRole() {
         assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
-                "Operador", "operador@redekrill.com", "Senha@123", null, "admin@redekrill.com")))
+                "Operador", "operador@redekrill.com", "SenhaForte@1234", null, "admin@redekrill.com")))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Perfil do usuário é obrigatório.");
     }
@@ -93,13 +95,29 @@ class CreateUserUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
                 "Operador", "operador@redekrill.com", "curta", Role.USER, "admin@redekrill.com")))
                 .isInstanceOf(DomainException.class)
-                .hasMessage("Senha deve ter pelo menos 8 caracteres.");
+                .hasMessage("A senha deve ter pelo menos 12 caracteres.");
+    }
+
+    @Test
+    void appliesTheSamePolicyAsPasswordChangeWhenCreatingAUser() {
+        // SEC-05: antes o ADMIN podia cadastrar 8 caracteres sem composição;
+        // a regra agora é uma só, então o caminho de criação recusa o que a troca recusa.
+        assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
+                "Operador", "operador@redekrill.com", "abcdefghijklmnop",
+                Role.USER, "admin@redekrill.com")))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("A senha deve conter letras e números.");
+        assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
+                "Operador", "operador@redekrill.com", "SENHA1234567",
+                Role.USER, "admin@redekrill.com")))
+                .isInstanceOf(DomainException.class)
+                .hasMessage("A senha é conhecida ou insegura. Escolha outra.");
     }
 
     @Test
     void rejectsBlankEmail() {
         assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
-                "Operador", "  ", "Senha@123", Role.USER, "admin@redekrill.com")))
+                "Operador", "  ", "SenhaForte@1234", Role.USER, "admin@redekrill.com")))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("E-mail do usuário é obrigatório.");
     }
@@ -109,7 +127,7 @@ class CreateUserUseCaseTest {
         when(userRepository.existsByEmail("operador@redekrill.com")).thenReturn(true);
 
         assertThatThrownBy(() -> useCase.execute(new CreateUserCommand(
-                "Operador", "Operador@RedeKrill.com", "Senha@123", Role.USER, "admin@redekrill.com")))
+                "Operador", "Operador@RedeKrill.com", "SenhaForte@1234", Role.USER, "admin@redekrill.com")))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Já existe um usuário com o e-mail informado.");
         verify(userRepository, never()).save(any());

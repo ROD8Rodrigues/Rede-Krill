@@ -1,8 +1,24 @@
+/*
+ * Sessão de autenticação entre a tabela e o modelo.
+ *
+ * Os oito campos passam idênticos, com uma ausência que merece leitura: não há
+ * relação com User aqui. A entidade guarda userId como coluna simples, e o modelo
+ * AuthSession faz o mesmo. A razão é prática: a sessão é lida e revogada pelo número do
+ * usuário, em update coletivo, e quem precisa dos dados da pessoa resolve por
+ * UserRepository. Sem a relação mapeada, a tabela de sessão não depende de carregar nada.
+ *
+ * O hash do refresh token atravessa como texto de 64 caracteres. Nem este mapper nem
+ * o modelo conhecem o algoritmo: quem gera e quem compara está no port
+ * RefreshTokenGenerator.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.mapper;
 
 import com.redekrill.scheduling.domain.model.AuthSession;
 import com.redekrill.scheduling.infrastructure.persistence.entity.AuthSessionJpaEntity;
 
+/**
+ * Conversão entre AuthSessionJpaEntity e o modelo AuthSession.
+ */
 public final class AuthSessionPersistenceMapper {
 
     private AuthSessionPersistenceMapper() {

@@ -6,8 +6,10 @@ spring:
 
 app:
   auth:
-    cookie-secure: false
-    expose-token-in-response: true
+    # Defaults de desenvolvimento mantidos, mas agora sobrescrevíveis pelo .env:
+    # o literal puro ignorava AUTH_COOKIE_SECURE e AUTH_EXPOSE_TOKEN_IN_RESPONSE.
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    expose-token-in-response: ${AUTH_EXPOSE_TOKEN_IN_RESPONSE:true}
   seed:
     enabled: ${SEED_ADMIN_ENABLED:true}
     require-password-change: ${SEED_ADMIN_REQUIRE_PASSWORD_CHANGE:true}

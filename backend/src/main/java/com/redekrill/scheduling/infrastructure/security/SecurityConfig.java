@@ -1,3 +1,22 @@
+/*
+ * Onde a cadeia de filtros e o CORS são montados: a fronteira entre o mundo HTTP e a
+ * aplicação.
+ *
+ * O modelo de sessão é STATELESS — o Spring não cria nem reusa HttpSession. O estado de
+ * quem chama está no token e nas cookies que a própria aplicação escreve (HttpOnly, pelo
+ * AuthController). Desativar formLogin, httpBasic e logout segue a mesma linha: nada
+ * aqui deve competir com o fluxo de /api/auth.
+ *
+ * CSRF convive com token JWT porque o access e o refresh também viajam em cookie, e
+ * cookie o navegador envia sem perguntar. Requisição com Bearer é a exceção
+ * (BearerAuthorizationRequestMatcher), pois ali o token só vai se um script o colocou
+ * no cabeçalho — e o Swagger em desenvolvimento depende desse caminho.
+ *
+ * A lista de permissões é longa por escolha: cada rota administrativa aparece com verbo
+ * e caminho escritos. Custa algumas linhas e evita a surpresa de um endpoint novo que
+ * nasceu protegido (ou exposto) por engano. Em produção, as rotas do Swagger deixam de
+ * ser públicas e passam a exigir ADMIN.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.dto.auth.AuthCookieSettings;
@@ -22,6 +41,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * Configura cadeia de filtros, permissões por rota e CORS. Não contém regra de negócio:
+ * aqui só se decide quem pode chamar o quê, e com quais cabeçalhos.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {

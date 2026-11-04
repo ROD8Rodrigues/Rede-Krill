@@ -1,3 +1,16 @@
+/*
+ * Edição de nome e descrição de um tipo de caminhão.
+ *
+ * O modelo é imutável, então "editar" significa construir um novo TruckType a partir do
+ * existente, com updatedAt no instante da mudança — o updatedAt vem do Clock injetado no caso
+ * de uso, e não do timestamp do banco: a hora da mudança é decidida pela aplicação.
+ *
+ * A checagem de nome repetido exclui o próprio registro, porque salvar sem mexer no
+ * nome é uma edição legítima.
+ *
+ * Agendamentos que já usam este tipo não são tocados: eles guardam a referência, e o
+ * nome que aparece neles vem da leitura, então passam a mostrar o nome novo.
+ */
 package com.redekrill.scheduling.application.usecase.trucktype;
 
 import com.redekrill.scheduling.application.dto.trucktype.TruckTypeResult;
@@ -13,6 +26,9 @@ import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 import java.time.Clock;
 import java.time.Instant;
 
+/**
+ * Renomeia e reescreve a descrição de um tipo de caminhão.
+ */
 public class UpdateTruckTypeUseCase {
 
     private final TruckTypeRepository truckTypeRepository;

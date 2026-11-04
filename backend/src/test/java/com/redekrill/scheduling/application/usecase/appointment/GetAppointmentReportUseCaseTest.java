@@ -2,6 +2,7 @@ package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentReportResult;
 import com.redekrill.scheduling.domain.exception.DomainException;
+import com.redekrill.scheduling.domain.model.AppointmentStatus;
 import com.redekrill.scheduling.domain.model.PageResult;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.support.TestFixtures;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,7 +40,7 @@ class GetAppointmentReportUseCaseTest {
     void aggregatesAppointmentsAndBothPalletTotals() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+        when(appointmentRepository.searchReport(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .thenReturn(PageResult.of(List.of(
                         TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
                         TestFixtures.appointment(2L, 10, TestFixtures.nonPalletized())
@@ -46,12 +48,15 @@ class GetAppointmentReportUseCaseTest {
         when(appointmentRepository.countByPeriod(start, end)).thenReturn(2L);
         when(appointmentRepository.sumPalletsByPeriod(start, end)).thenReturn(20L);
         when(appointmentRepository.sumEffectivePalletsByPeriod(start, end)).thenReturn(30L);
+        when(appointmentRepository.countCanceledByPeriod(start, end)).thenReturn(1L);
 
-        AppointmentReportResult result = useCase.execute(start, end);
+        AppointmentReportResult result = useCase.execute(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE);
 
         assertThat(result.totalAppointments()).isEqualTo(2);
         assertThat(result.totalPallets()).isEqualTo(20);
         assertThat(result.totalEffectivePallets()).isEqualTo(30);
+        assertThat(result.totalCanceled()).isEqualTo(1);
+        assertThat(result.matchingAppointments()).isEqualTo(2);
         assertThat(result.page()).isZero();
         assertThat(result.size()).isEqualTo(DEFAULT_SIZE);
         assertThat(result.totalPages()).isEqualTo(1);
@@ -65,14 +70,14 @@ class GetAppointmentReportUseCaseTest {
     void keepsCanceledAppointmentsInTheReport() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+        when(appointmentRepository.searchReport(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .thenReturn(PageResult.of(List.of(
                         TestFixtures.appointment(1L, 10, TestFixtures.palletized()),
                         TestFixtures.canceledAppointment()
                 ), DEFAULT_PAGE, DEFAULT_SIZE, 2, 1));
         when(appointmentRepository.countByPeriod(start, end)).thenReturn(2L);
 
-        AppointmentReportResult result = useCase.execute(start, end);
+        AppointmentReportResult result = useCase.execute(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE);
 
         assertThat(result.totalAppointments()).isEqualTo(2);
         assertThat(result.appointments())
@@ -83,11 +88,11 @@ class GetAppointmentReportUseCaseTest {
     void returnsEmptyReportWhenNoAppointmentsExist() {
         LocalDate start = LocalDate.of(2026, 2, 1);
         LocalDate end = LocalDate.of(2026, 2, 28);
-        when(appointmentRepository.searchReport(start, end, DEFAULT_PAGE, DEFAULT_SIZE))
+        when(appointmentRepository.searchReport(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .thenReturn(PageResult.of(List.of(), DEFAULT_PAGE, DEFAULT_SIZE, 0, 0));
         when(appointmentRepository.countByPeriod(start, end)).thenReturn(0L);
 
-        AppointmentReportResult result = useCase.execute(start, end);
+        AppointmentReportResult result = useCase.execute(start, end, null, DEFAULT_PAGE, DEFAULT_SIZE);
 
         assertThat(result.totalAppointments()).isZero();
         assertThat(result.totalPallets()).isZero();
@@ -96,12 +101,34 @@ class GetAppointmentReportUseCaseTest {
     }
 
     @Test
+    void filtersTheTableWithoutChangingThePeriodKpis() {
+        LocalDate start = LocalDate.of(2026, 2, 1);
+        LocalDate end = LocalDate.of(2026, 2, 28);
+        when(appointmentRepository.searchReport(
+                start, end, AppointmentStatus.CANCELED, DEFAULT_PAGE, DEFAULT_SIZE))
+                .thenReturn(PageResult.of(
+                        List.of(TestFixtures.canceledAppointment()), DEFAULT_PAGE, DEFAULT_SIZE, 1, 1));
+        when(appointmentRepository.countByPeriod(start, end)).thenReturn(8L);
+        when(appointmentRepository.countCanceledByPeriod(start, end)).thenReturn(3L);
+
+        AppointmentReportResult result =
+                useCase.execute(start, end, AppointmentStatus.CANCELED, DEFAULT_PAGE, DEFAULT_SIZE);
+
+        verify(appointmentRepository).searchReport(
+                start, end, AppointmentStatus.CANCELED, DEFAULT_PAGE, DEFAULT_SIZE);
+        assertThat(result.matchingAppointments()).isEqualTo(1);
+        assertThat(result.totalAppointments()).isEqualTo(8);
+        assertThat(result.totalCanceled()).isEqualTo(3);
+        assertThat(result.appointments()).hasSize(1);
+    }
+
+    @Test
     void rejectsMissingDates() {
-        assertThatThrownBy(() -> useCase.execute(null, LocalDate.of(2026, 2, 28)))
+        assertThatThrownBy(() -> useCase.execute(null, LocalDate.of(2026, 2, 28), null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Data inicial e data final são obrigatórias.");
 
-        assertThatThrownBy(() -> useCase.execute(LocalDate.of(2026, 2, 1), null))
+        assertThatThrownBy(() -> useCase.execute(LocalDate.of(2026, 2, 1), null, null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Data inicial e data final são obrigatórias.");
     }
@@ -109,7 +136,7 @@ class GetAppointmentReportUseCaseTest {
     @Test
     void rejectsInvertedPeriod() {
         assertThatThrownBy(() -> useCase.execute(
-                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 2, 1)))
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 2, 1), null, DEFAULT_PAGE, DEFAULT_SIZE))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Data inicial não pode ser posterior à data final.");
     }

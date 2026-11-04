@@ -1,6 +1,6 @@
 # ADR-006 — Concorrência: unicidade de ID Pedido em camadas + lock otimista por `version`
 
-**Status:** Aceita
+**Status:** Aceita (revisada em 2026-11-03 — ver "Divergência de contrato")
 **Data:** 2026-11-02
 **Escopo:** domínio (`Appointment`, `User`), persistência (entidades JPA, migração `V5`), API (`GlobalExceptionHandler`)
 
@@ -61,4 +61,19 @@ A auditoria técnica anterior registrou dois problemas de concorrência (`C8`):
 - **`INSERT ... ON CONFLICT DO NOTHING` + leitura do resultado** — resolveria a corrida na camada 1 com uma instrução, mas exigiria escapar do JPA para SQL nativo e perderia a mensagem de negócio por campo. Ficou como otimização futura.
 - **Tabela de reserva de ID Pedido com lock pessimista** — garante unicidade com mensagem boa, mas cria ponto de contenção e mais uma tabela para auditar.
 - **Lock pessimista (`@Lock(PESSIMISTIC_WRITE)`) na atualização** — eliminaria o `409`, ao custo de segurar linha durante a edição; para um formulário que pode ficar aberto minutos, é o remédio errado.
-- **`ETag`/`If-Match` em HTTP** — semanticamente ideal para `PUT` condicional, porém exigiria mudar o contrato da API e o cliente; `version` no corpo cumpre o mesmo papel com menos ruptura.
+- **`ETag`/`If-Match` em HTTP** — semanticamente ideal para `PUT` condicional, porém exigiria mudar o contrato da API e o cliente.
+
+## Divergência de contrato (registrada na revisão de 2026-11-03)
+
+O texto original fechava a alternativa do `ETag` dizendo que "`version` no corpo cumpre o mesmo papel com menos ruptura". **Isso não é verdade no código atual.** Busca em `presentation/request`, `presentation/response` e `application/dto` não encontra nenhum campo `version`: o contrato da API não transporta a versão.
+
+O que existe, e funciona:
+
+- `@Version` em `AppointmentJpaEntity:85` e `UserJpaEntity:49`, com `version` lida dentro da transação de cada requisição.
+- Duas edições concorrentes do mesmo agendamento fazem o segundo `UPDATE` afetar zero linhas, e o Hibernate lança `OptimisticLockingFailureException`, mapeado para `409` pelo handler. A proteção contra *lost update* é **server-side por transação** e não depende do cliente enviar nada.
+
+O que **não** existe:
+
+- Precondição cliente-servidor. O cliente não pode dizer "grava só se o estado for o que eu li", porque nunca recebeu nem devolve `version`. O `409` aparece apenas quando duas requisições se sobrepoem no banco — um conflito lógico entre leitura antiga e escrita posterior passa despercebido.
+
+Consequência prática: a alternativa `ETag`/`If-Match` continua aberta, e a redação anterior não deve ser lida como se estivesse implementada.

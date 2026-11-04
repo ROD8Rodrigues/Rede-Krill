@@ -1,3 +1,14 @@
+/*
+ * O corpo de uma edição de agendamento, com os mesmos campos da criação.
+ *
+ * Repetido de propósito: a atualização é PUT do estado inteiro, então não existe o caso
+ * "mandei só a data". Se amanhã a edição aceitar menos campo que a criação, este record
+ * muda e o CreateAppointmentRequest fica intacto — é essa separação que os mantém
+ * independentes, e não a preguiça de extrair um tipo comum.
+ *
+ * O id do agendamento não aparece aqui: vem da path. Um corpo que discordasse do
+ * /{id} seria decidido pelo caso de uso, não por este record.
+ */
 package com.redekrill.scheduling.presentation.request;
 
 import jakarta.validation.constraints.Email;

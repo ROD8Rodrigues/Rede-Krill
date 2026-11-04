@@ -1,3 +1,18 @@
+/*
+ * Executa a trava de senha inicial que o JwtAuthenticationFilter sinaliza.
+ *
+ * O atributo MUST_CHANGE_PASSWORD vem da request, gravado durante a autenticação. Aqui
+ * não há nova consulta ao banco: é um filtro lendo decisão já tomada. Quando a decisão é
+ * "troque a senha" e o caminho não está na lista de exceções, a resposta é 403 com code
+ * PASSWORD_CHANGE_REQUIRED e o controller nem chega a rodar.
+ *
+ * O code existe porque ACCESS_DENIED também é 403. Sem ele, distinguir os dois casos
+ * dependeria de ler a frase em português da mensagem.
+ *
+ * Quatro rotas ficam liberadas — me, logout, change-password e csrf — porque um bloqueio
+ * absoluto tiraria da pessoa justamente os meios de resolver o bloqueio. OPTIONS passa
+ * junto: preflight não altera estado e derrubá-lo viraria erro de CORS.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.dto.auth.AuthRequestAttributes;

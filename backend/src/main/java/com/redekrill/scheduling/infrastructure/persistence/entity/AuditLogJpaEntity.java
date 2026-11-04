@@ -1,3 +1,14 @@
+/*
+ * A linha de auditoria, escrita uma vez e lida para sempre.
+ *
+ * Sete colunas e nenhuma relação: actorEmail, entityName e entityId são texto, não chave
+ * estrangeira. É a escolha que faz a trilha sobreviver ao que ela descreve — um tipo de
+ * caminhão removido continua com o histórico de quem o criou, porque nada aponta para a
+ * linha apagada.
+ *
+ * action é enumerado por nome. details é TEXT porque guarda a frase montada pelo caso de
+ * uso, e frase de auditoria não cabe em 80 caracteres.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
 import com.redekrill.scheduling.domain.model.AuditAction;
@@ -20,6 +31,9 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Mapeamento JPA da tabela audit_log.
+ */
 public class AuditLogJpaEntity {
 
     @Id

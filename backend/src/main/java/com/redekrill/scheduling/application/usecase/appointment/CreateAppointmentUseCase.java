@@ -1,3 +1,27 @@
+/*
+ * O caso de uso que materializa um agendamento novo.
+ *
+ * É o fluxo mais completo do sistema e a ordem das etapas importa: primeiro o
+ * validate(), que recusa a ausência dos campos obrigatórios sem tocar no banco;
+ * depois a transação, onde tudo que altera estado acontece junto — a reserva de
+ * unicidade do pedido, o insert, a linha de auditoria e a entrada na fila de
+ * e-mail. Se qualquer uma dessas falhar, as outras quatro falham também, e não
+ * sobra agendamento sem registro nem aviso sem agendamento.
+ *
+ * A capacidade é consultada dentro da mesma transação de propósito. Os totais
+ * "antes" vêm de uma soma sobre os registros ativos; medir antes de abrir a
+ * transação permitiria que duas requisições concorrentes lessem o mesmo número e
+ * cada uma se achasse dentro do limite.
+ *
+ * E, ainda assim, estourar o limite não impede nada: CapacityPolicy produz avisos,
+ * este caso de uso grava o agendamento e devolve os avisos na resposta. O e-mail
+ * leva os mesmos avisos, porque quem entrega precisa saber que a faixa ficou
+ * acima do limite monitorado. O envio não acontece aqui — o que se grava é a
+ * intenção na fila.
+ *
+ * Camada: application. Não vê HttpServletRequest nem entidade JPA; recebe um
+ * CreateAppointmentCommand já montado pelo controller e devolve um resultado.
+ */
 package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
@@ -28,6 +52,19 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * Orquestra a criação de um agendamento: resolve os cadastros referenciados,
+ * reserva a unicidade do pedido, mede a capacidade e grava tudo junto do aviso ao
+ * fornecedor.
+ *
+ * O que esta classe faz: coordenar. As regras estão no domínio — Appointment cria
+ * e valida o registro, CapacityPolicy compara com os limites — e a persistência
+ * está nos repositórios injetados.
+ *
+ * O que ela NÃO faz: decidir sobre HTTP, status code nem formatação de resposta,
+ * e também não bloqueia quando a capacidade estoura. O aviso é devolvido, não
+ * lançado.
+ */
 public class CreateAppointmentUseCase {
 
     private final AppointmentRepository appointmentRepository;
@@ -63,6 +100,20 @@ public class CreateAppointmentUseCase {
         this.clock = clock;
     }
 
+    /**
+     * Grava o agendamento e devolve o resultado com os avisos de capacidade.
+     *
+     * As três buscas por id existem porque o comando traz identificadores, não
+     * objetos: quem chama pela API não tem como saber se a faixa informada ainda
+     * está cadastrada. A resolução acontece dentro da transação, junto do insert,
+     * para que um cadastro excluído no meio do caminho não produza agendamento
+     * órfão.
+     *
+     * @param command dados do agendamento, com o e-mail de quem está autenticado.
+     * @return o agendamento criado, os avisos do lançamento, a ocupação resultante
+     *         e a fila de e-mail apenas acionada — emailQueued verdadeiro, emailSent
+     *         falso, porque o envio é do processador.
+     */
     public AppointmentCommandResult execute(CreateAppointmentCommand command) {
         validate(command);
 
@@ -131,6 +182,18 @@ public class CreateAppointmentUseCase {
         );
     }
 
+    /**
+     * Checagens que não precisam de banco: presença de identidade, data, os três
+     * ids de cadastro e o autor da requisição.
+     *
+     * Formato de texto, tamanho e quantidade positiva não aparecem aqui de
+     * propósito — quem confere isso é o construtor de Appointment, uma única vez,
+     * para todo caminho que monta um agendamento, inclusive a leitura do banco.
+     *
+     * @param command o comando recebido do controller.
+     * @throws DomainException se um campo obrigatório faltar.
+     * @throws AuthenticationFailedException se não houver autor identificado.
+     */
     private void validate(CreateAppointmentCommand command) {
         if (command == null) {
             throw new DomainException("Dados do agendamento são obrigatórios.");
@@ -150,6 +213,8 @@ public class CreateAppointmentUseCase {
         }
     }
 
+    // Carrega os dois valores que saem da transação: o registro salvo e a medição
+    // feita contra ele. Existe porque o corpo de transactionRunner devolve uma coisa só.
     private record PreparedAppointment(Appointment appointment, CapacityAssessment assessment) {
     }
 }

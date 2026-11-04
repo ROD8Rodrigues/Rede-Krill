@@ -1,3 +1,22 @@
+/*
+ * Como um agendamento vira um HTML enviado pelo SMTP.
+ *
+ * O corpo não é concatenação de strings: vem do template Thymeleaf
+ * email/appointment-created, com dez variáveis mais a lista de warnings. Manter o
+ * layout fora do código é o que permite ajustar o e-mail sem tocar em lógica, e o
+ * Context com locale pt-BR faz data e quantidade saírem no formato que o fornecedor lê.
+ *
+ * A data é formatada como dd/MM/yyyy e o horário vem do label do time slot, ambos
+ * gerados antes de chegar ao template — o template não deve calcular nada.
+ *
+ * O destinatário é sempre o e-mail do fornecedor gravado no agendamento, nunca o de um
+ * usuário autenticado: quem precisa saber que a entrega foi marcada é quem vai receber o
+ * caminhão.
+ *
+ * Qualquer falha de construção da mensagem ou de envio vira EmailDeliveryException com a
+ * causa embaixo. O motivo do reenvio fica no log do processador; aqui só se garante que
+ * uma exceção do Jakarta Mail não vaze nua para a camada de aplicação.
+ */
 package com.redekrill.scheduling.infrastructure.email;
 
 import com.redekrill.scheduling.application.port.EmailNotifier;
@@ -17,6 +36,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Implementa EmailNotifier com JavaMail e Thymeleaf. Não decide quando enviar nem se
+ * deve retentar — a fila e a política de reteste pertencem ao processador de outbox.
+ */
 @Component
 public class SmtpEmailNotifier implements EmailNotifier {
 

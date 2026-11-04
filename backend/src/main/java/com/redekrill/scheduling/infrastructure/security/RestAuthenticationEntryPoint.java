@@ -1,3 +1,15 @@
+/*
+ * A resposta de 401 do sistema, escrita antes de qualquer controller.
+ *
+ * Cai aqui quem chega sem token, com token inválido ou com sessão revogada — situações
+ * diferentes que, para o cliente, significam a mesma coisa: não há identidade válida
+ * naquela requisição. O corpo é o ApiError de sempre, com code UNAUTHENTICATED.
+ *
+ * A tentativa também é auditada, com action ACCESS_DENIED (a mesma do 403) e ator
+ * anonimo@redekrill.local quando não há identidade na request. Falha na auditoria não
+ * barra a resposta: o erro é logado e o 401 sai mesmo assim, porque negar acesso por
+ * causa de um log indisponível criaria um defeito novo.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.service.AuditService;
@@ -19,6 +31,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
+/**
+ * Ponto de entrada para requisição não autenticada: 401 em JSON e trilha de auditoria.
+ * Não decide quais rotas exigem login — isso está na SecurityFilterChain.
+ */
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

@@ -1,3 +1,16 @@
+/*
+ * Edição de uma faixa horária, com um filtro a mais que na criação.
+ *
+ * A comparação de sobreposição precisa excluir a própria faixa: ela já existe no
+ * cadastro e inevitavelmente se chocaria consigo mesma. O filter sobre o id faz isso
+ * antes do anyMatch, e o resto do caminho é idêntico ao de criar — candidate montado
+ * com o id existente, validação de duas horas no modelo, auditoria dentro da
+ * transação.
+ *
+ * Vale saber o que esta edição não refaz: agendamentos já marcados nesta faixa
+ * continuam com o mesmo timeSlotId, apontando para o novo intervalo. A checagem de uso
+ * existe no delete, não aqui.
+ */
 package com.redekrill.scheduling.application.usecase.reference;
 
 import com.redekrill.scheduling.application.dto.reference.TimeSlotResult;
@@ -10,6 +23,9 @@ import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.TimeSlot;
 import com.redekrill.scheduling.domain.repository.TimeSlotRepository;
 
+/**
+ * Move o intervalo de uma faixa horária existente.
+ */
 public class UpdateTimeSlotUseCase {
 
     private final TimeSlotRepository timeSlotRepository;

@@ -1,3 +1,22 @@
+/*
+ * O corpo completo de um agendamento novo.
+ *
+ * Os limites de tamanho espelham as colunas do banco (nome e e-mail 80, placa 20,
+ * observação 500) para que a recusa aconteça com mensagem legível em vez de estouro de
+ * constraint no insert.
+ *
+ * As três referências — timeSlotId, truckTypeId, palletizationTypeId — chegam como id,
+ * e é o caso de uso que confere se existem. Nome de tipo no corpo seria conveniência que
+ * cria ambiguidade quando dois tipos mudam de nome.
+ *
+ * palletQuantity vai de 1 a um milhão, e esse teto não é capacidade operacional: o
+ * limite real do dia (480 pallets) e da faixa (120) é decidido pela CapacityPolicy, e
+ * estourá-lo gera aviso ou recusa de negócio. O milhão aqui só impede que um número
+ * absurdo chegue a uma soma de relatório.
+ *
+ * orderId é o identificador do pedido no sistema de quem chama — obrigatório e positivo,
+ * porque agendamento sem pedido não tem a quem devolver o resultado.
+ */
 package com.redekrill.scheduling.presentation.request;
 
 import jakarta.validation.constraints.Email;

@@ -1,0 +1,290 @@
+﻿<!doctype html><html><head><meta charset='utf-8'><style>body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1f2933; line-height: 1.55; }
+h1 { font-size: 20pt; border-bottom: 2px solid #2680c2; padding-bottom: 6px; color: #12324f; }
+h2 { font-size: 15pt; color: #12324f; margin-top: 22px; border-bottom: 1px solid #d5dbe1; padding-bottom: 3px; }
+h3 { font-size: 12.5pt; color: #2680c2; }
+code { font-family: Consolas, 'Courier New', monospace; background: #f2f5f7; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+pre { background: #f2f5f7; border: 1px solid #d5dbe1; border-radius: 6px; padding: 10px; overflow-x: auto; page-break-inside: avoid; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 9.5pt; }
+th, td { border: 1px solid #c3ccd3; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #12324f; color: #fff; }
+tr:nth-child(even) td { background: #f7f9fb; }
+blockquote { border-left: 4px solid #2680c2; margin: 10px 0; padding: 4px 14px; color: #52606d; background: #f2f7fa; }
+li { margin: 2px 0; }
+hr { border: none; border-top: 1px solid #d5dbe1; margin: 18px 0; }
+a { color: #2680c2; text-decoration: none; }
+table, pre { page-break-inside: auto; }
+tr { page-break-inside: avoid; }</style></head><body><h1>RELATÓRIO DE ENTREGA — Rede Krill Agendamento</h1>
+<p><strong>Data:</strong> 2026-11-03 · <strong>Ambiente:</strong> máquina local Windows (JDK 21, Node 26, sem Docker)</p>
+<p>Este documento responde à pergunta central da entrega com quatro categorias explícitas:
+o que foi <strong>CONCLUÍDO E VALIDADO</strong> (com evidência), o que foi <strong>IMPLEMENTADO, MAS NÃO
+VALIDADO</strong>, o que ficou <strong>PENDENTE POR LIMITAÇÃO EXTERNA</strong> e o que <strong>NÃO FOI IMPLEMENTADO</strong>
+(com justificativa). Nenhuma afirmação foi marcada como validada sem execução real.</p>
+<hr>
+<h2>1. CONCLUÍDO E VALIDADO</h2>
+<h3>1.1 Backend</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Evidência</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Spring Boot <strong>4.1.2</strong>, Java 21, starters corretos (webmvc/security/data-jpa/validation/actuator/mail/thymeleaf/flyway)</td>
+<td><code>backend/pom.xml</code>; build <code>mvnw clean verify</code> verde</td>
+</tr>
+<tr>
+<td><strong>214 testes</strong> (unitários + integração com PostgreSQL embarcado + ArchUnit), 0 falhas/0 erros</td>
+<td>saída do <code>mvnw clean verify</code> desta data</td>
+</tr>
+<tr>
+<td>Cobertura JaCoCo <strong>87,61% linhas / 71,43% branches / 86,84% instruções</strong></td>
+<td><code>backend/target/site/jacoco/jacoco.csv</code> após o verify</td>
+</tr>
+<tr>
+<td>Arquitetura hexagonal protegida por <strong>ArchUnit</strong> (4 regras)</td>
+<td><code>ArchitectureTest</code>: 4 testes passando</td>
+</tr>
+<tr>
+<td>Sessão: JWT em cookie HttpOnly (15 min), refresh opaco rotativo com hash SHA-256 em <code>auth_session</code>, revogação em logout/desativação</td>
+<td>integração <code>SchedulingApiIntegrationTest</code> (10 testes); código em <code>infrastructure/security</code></td>
+</tr>
+<tr>
+<td>CSRF double-submit (<code>XSRF-TOKEN</code>/<code>X-XSRF-TOKEN</code>) com Bearer isento (Swagger/testes) e endpoint <code>GET /api/auth/csrf</code></td>
+<td>integração + controller</td>
+</tr>
+<tr>
+<td>Rate limiting de login (5/conta e 20/IP por 15 min, bloqueio 5 min) com 429 e auditoria</td>
+<td><code>LoginRateLimiter</code> + testes unitários</td>
+</tr>
+<tr>
+<td>Seed admin seguro: exigência de <code>SEED_ADMIN_PASSWORD</code>, rejeição de senhas conhecidas, idempotently só cria se e-mail inexistente, falha em prod sem senha</td>
+<td><code>DataInitializer</code> + testes</td>
+</tr>
+<tr>
+<td>Troca de senha obrigatória no primeiro acesso (<code>PasswordChangeRequiredFilter</code> + flag <code>must_change_password</code>)</td>
+<td>integração + E2E frontend</td>
+</tr>
+<tr>
+<td>Duplicidade de <code>orderId</code> → <strong>409</strong>; <code>@Version</code> em usuário/agendamento (conflito de edição)</td>
+<td><code>CreateAppointmentUseCaseTest</code> etc.</td>
+</tr>
+<tr>
+<td><code>UpdateUserRequest.active</code> → <code>Boolean @NotNull</code>; desativação revoga sessões e reset força troca</td>
+<td><code>UserController</code> + testes</td>
+</tr>
+<tr>
+<td>Auditoria completa: ator (ou <code>ANONYMOUS</code> explícito), login inválido/bloqueado, 401/403, logout, senha</td>
+<td><code>AuditService</code> + <code>GlobalExceptionHandlerTest</code> (13 testes) + integração</td>
+</tr>
+<tr>
+<td>CRUD horários (2 h exatas, 4/dia, sem sobreposição) e paletização (2 obrigatórios com multiplicadores fixos; extras código <code>OUTRO</code>, multiplicador 1–100, nome único), exclusões bloqueadas quando em uso (409)</td>
+<td>use cases + testes + integração</td>
+</tr>
+<tr>
+<td>Limites fixos 480/dia · 120/faixa, multiplicador só na faixa; avisos sem bloqueio; <code>capacity_settings</code> removida na V5 com justificativa no ADR-004</td>
+<td><code>CapacityPolicy</code> + migrações</td>
+</tr>
+<tr>
+<td>Relatório paginado no banco com totais agregados (contagem + somas de pallets declarados/efetivos)</td>
+<td><code>GetAppointmentReportUseCase</code> + testes (5) + integração</td>
+</tr>
+<tr>
+<td>E-mail via <strong>outbox transacional</strong> (<code>email_outbox</code> V6/V7) com retry/backoff e métricas Micrometer; resposta comunica <code>emailQueued</code>, nunca &quot;enviado&quot;</td>
+<td><code>EmailOutboxProcessor</code> + testes/mocks</td>
+</tr>
+<tr>
+<td>Validação de configuração de produção no boot (JWT fraco/conhecido, cookies sem Secure, seed sem senha → boot falha)</td>
+<td><code>ProductionConfigurationValidator</code></td>
+</tr>
+<tr>
+<td>Correlation ID (<code>X-Correlation-ID</code>, MDC no log, retorno no header), logs ECS em prod, <code>/actuator/health</code> + <code>/actuator/prometheus</code></td>
+<td><code>CorrelationIdFilter</code> + application.yml</td>
+</tr>
+<tr>
+<td>Flyway V1..V7 com <code>clean-disabled=true</code> em prod</td>
+<td><code>backend/src/main/resources/db/migration/</code></td>
+</tr>
+</tbody></table>
+<h3>1.2 Frontend</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Evidência</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sem <code>localStorage</code> de token; sessão via cookies com <code>GET /me</code>, CSRF garantido e <strong>refresh silencioso único</strong> com retry</td>
+<td><code>src/services/api.js</code>, <code>src/stores/auth.js</code> + testes</td>
+</tr>
+<tr>
+<td>20 testes Vitest (api client/CSRF/refresh, store auth/safeRedirect, projeção de capacidade) — 0 falhas</td>
+<td><code>npm test</code> desta data</td>
+</tr>
+<tr>
+<td>ESLint (flat config) sem erros/warnings e Prettier aplicado</td>
+<td><code>npm run lint</code>, <code>npm run format</code></td>
+</tr>
+<tr>
+<td><code>vue-tsc --noEmit</code> sem erros</td>
+<td><code>npm run typecheck</code></td>
+</tr>
+<tr>
+<td>Build Vite <strong>8.3.5</strong> com code splitting por rota (chunks por view)</td>
+<td><code>npm run build</code> (saída lista <code>UserView-*.js</code>, <code>TimeSlotsView-*.js</code>, …)</td>
+</tr>
+<tr>
+<td>3 testes E2E Playwright (redirect seguro pós-login rejeitando <code>//</code> e URLs absolutas; bloqueio por troca obrigatória; mensagem de credenciais inválidas) — passando</td>
+<td><code>npm run test:e2e</code> desta data</td>
+</tr>
+<tr>
+<td>Ocupação projetada em tempo real no modal de agendamento com baseline de edição e aviso (sem bloqueio)</td>
+<td><code>AppointmentsView.vue</code> + <code>capacity.test.js</code> (6 testes)</td>
+</tr>
+<tr>
+<td>Telas novas de CRUD: <code>TimeSlotsView.vue</code>, <code>PalletizationTypesView.vue</code>, <code>ChangePasswordView.vue</code>; navegação e guards atualizados</td>
+<td>arquivos + router com lazy loading</td>
+</tr>
+<tr>
+<td>Correção de UX/acessibilidade dos campos de senha (inputId) e banner de confirmação pós-troca</td>
+<td><code>LoginView.vue</code>, <code>ChangePasswordView.vue</code></td>
+</tr>
+<tr>
+<td>Vitest/Vite/Vitest+Playwright/ESLint incorporados; <code>npm audit</code> = <strong>0 vulnerabilidades</strong> após overrides <code>glob ^14.0.2</code> / <code>minimatch ^11.0.1</code></td>
+<td><code>npm audit</code> desta data</td>
+</tr>
+</tbody></table>
+<h3>1.3 Infra/CI/Docs</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Evidência</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>docker-compose.yml</code> com segredos obrigatórios <code>${VAR:?}</code>, perfil <code>dev</code> (MailHog), healthchecks Postgres/backend/frontend</td>
+<td>arquivo + parse YAML válido</td>
+</tr>
+<tr>
+<td><code>.env.example</code> sem segredos reais; <code>.env</code> no <code>.gitignore</code></td>
+<td>arquivo</td>
+</tr>
+<tr>
+<td><code>nginx.conf</code> com CSP/headers, proxy <code>/api</code>, swagger e cache imutável; Dockerfile frontend Node 24</td>
+<td>arquivos</td>
+</tr>
+<tr>
+<td>CI GitHub Actions: backend (verify+JaCoCo), frontend (lint/format/typecheck/test+coverage/build/e2e), infra (compose config), dependency-check semanal/manual; Dependabot semanal</td>
+<td><code>.github/workflows/ci.yml</code>, <code>.github/dependabot.yml</code></td>
+</tr>
+<tr>
+<td>OWASP Dependency-Check executado manualmente (plugin 12.2.2, perfil <code>security</code> no pom com <code>failBuildOnCVSS=7</code>) — <strong>0 vulnerabilidades em 86 dependências</strong></td>
+<td><code>backend/target/dependency-check/dependency-check-report.json</code></td>
+</tr>
+<tr>
+<td>README reescrito com stack/segurança/endpoints/execução/testes/limitações</td>
+<td><code>README.md</code></td>
+</tr>
+<tr>
+<td>ADRs 001–010 em <code>docs/arquitetura/</code> (007–010 adicionadas em 03/11)</td>
+<td>arquivos</td>
+</tr>
+<tr>
+<td><code>SECURITY_REPORT.md</code> com evidências separadas de limitações</td>
+<td>arquivo</td>
+</tr>
+<tr>
+<td>Runbook operacional em <code>docs/operacao/RUNBOOK.md</code></td>
+<td>arquivo</td>
+</tr>
+<tr>
+<td>PDF de entrega e roteiro de vídeo em <code>docs/entrega/</code></td>
+<td><code>RELATORIO_ENTREGA.pdf</code>, <code>ROTEIRO_VIDEO.md</code></td>
+</tr>
+</tbody></table>
+<h2>2. IMPLEMENTADO, MAS NÃO VALIDADO</h2>
+<p>Estes itens têm código/<code>config</code> no repositório e testes de lógica, mas <strong>sem execução real
+do ambiente completo</strong>:</p>
+<ul>
+<li><strong>Dashboard/métricas com Prometheus externo</strong>: endpoints expostos; nenhum Prometheus
+configurado para consumir (sem infra nesta máquina).</li>
+<li><strong>MailHog/UI</strong>: perfil <code>dev</code> configurado; interface nunca aberta.</li>
+<li><strong>Code splitting com cache de navegador</strong>: build gera chunks (verificado no output), mas
+comportamento em navegação real com cache/HTTP2 do nginx não foi exercitado.</li>
+<li><strong>Swagger UI em produção</strong>: rota gated por perfil; não aberta em navegador contra prod.</li>
+<li><strong>Refresh rotativo sob concorrência de múltiplas abas</strong>: coberto por teste de um fluxo
+linear; cenário com duas abas simultâneas não reproduzido manualmente.</li>
+</ul>
+<h2>3. PENDENTE POR LIMITAÇÃO EXTERNA</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Limitação</th>
+<th>Alternativa adotada</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Execução da stack Docker/Compose</strong> (subir 3 containers, healthcheck real)</td>
+<td>Docker indisponível nesta máquina</td>
+<td>Validado estaticamente (YAML, variáveis, ordem, healthchecks declarados); passos no runbook</td>
+</tr>
+<tr>
+<td><strong>SMTP real</strong> (envio e ida/volta com cliente de e-mail)</td>
+<td>Não há servidor SMTP acessível (MailHog exige Docker)</td>
+<td>Outbox testada com mocks; métricas e estados implementados</td>
+</tr>
+<tr>
+<td><strong>E2E com backend real</strong> (frontend + API + banco no mesmo ambiente)</td>
+<td>Depende da stack Docker</td>
+<td>E2E de frontend com API mockada (3 testes); integração backend cobre API</td>
+</tr>
+<tr>
+<td><strong>NVD API key</strong> para Dependency-Check completo</td>
+<td>Chave não fornecida (não inventada)</td>
+<td>Rodou sem key: NVD baixou 911 registros; 0 achados; CI usa chave opcional</td>
+</tr>
+<tr>
+<td><strong>Validação do pipeline GitHub Actions</strong></td>
+<td>Não há push remoto nesta sessão; primeiro push validará</td>
+<td>YAML revisado; jobs isolados</td>
+</tr>
+</tbody></table>
+<h2>4. NÃO IMPLEMENTADO, COM JUSTIFICATIVA</h2>
+<ol>
+<li><strong>Rate limiting distribuído (Redis/banco)</strong> — o mecanismo atual funciona por instância;
+multi-instância não faz parte do escopo de deploy avaliado. Recomendado antes de escalar
+horizontalmente (ADR-010 e <code>SECURITY_REPORT.md</code> §11 registram a limitação).</li>
+<li><strong>2FA/MFA e recuperação por e-mail</strong> — fora do escopo do desafio; exigiria backend de
+envio confiável (SMTP) e decisões de produto não levantadas. A troca obrigatória +
+política de senha cobre parte do risco.</li>
+<li><strong>UI para gestão da outbox de e-mail</strong> — visível apenas via métricas/banco; prioridade
+menor que telas operacionais. Todos os estados estão no banco e na métrica Prometheus.</li>
+<li><strong>Compatibilidade com empresa de navegadores antigos (IE/legados)</strong> — build moderno
+(esbuild/rolldown) sem polyfills deliberadamente; público interno.</li>
+<li><strong>Clean de histórico do Git para segredos antigos</strong> — o histórico remoto é público e
+pertence ao repositório do usuário; limpeza de histórico (<code>git filter-repo</code>) exige decisão
+e execução pelo dono do repo (docs a indicam; não executada por isso).</li>
+</ol>
+<h2>5. Estado do repositório</h2>
+<ul>
+<li>Branch: <code>main</code> · HEAD: <code>a9bbc7b</code> (03/11/2026 00:49 — ainda em <code>origin/main</code> está <code>06cee93</code>); <strong>nenhum commit/push executado</strong> nesta sessão —
+todas as alterações estão no workspace para revisão e commit do usuário.</li>
+<li>Recomendação de sequência: revisar diff → commit único ou em blocos (backend/frontend/docs)
+→ push → acompanhar a primeira execução do CI.</li>
+</ul>
+<h2>6. Como reproduzir a validação</h2>
+<pre><code class="language-powershell"># Backend
+cd backend ; .\mvnw.cmd clean verify          # 214 testes + JaCoCo
+.\mvnw.cmd -B -q -Psecurity -DskipTests org.owasp:dependency-check-maven:check
+
+# Frontend
+cd frontend ; npm ci
+npm run lint ; npm run format:check ; npm run typecheck ; npm test ; npm run build
+npm run test:e2e                              # Playwright (instalado nesta máquina)
+npm audit                                     # 0 vulnerabilidades
+</code></pre>
+</body></html>

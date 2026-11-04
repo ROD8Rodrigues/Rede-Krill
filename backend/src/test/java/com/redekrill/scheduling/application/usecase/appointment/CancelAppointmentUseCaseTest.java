@@ -1,6 +1,7 @@
 package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.service.AuditService;
+import com.redekrill.scheduling.application.service.EmailOutboxService;
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.ConflictException;
 import com.redekrill.scheduling.domain.exception.DomainException;
@@ -40,6 +41,8 @@ class CancelAppointmentUseCaseTest {
     private UserRepository userRepository;
     @Mock
     private AuditService auditService;
+    @Mock
+    private EmailOutboxService emailOutboxService;
 
     private CancelAppointmentUseCase useCase;
 
@@ -49,6 +52,7 @@ class CancelAppointmentUseCaseTest {
                 appointmentRepository,
                 userRepository,
                 auditService,
+                emailOutboxService,
                 new ImmediateTransactionRunner(),
                 Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC)
         );
@@ -70,6 +74,7 @@ class CancelAppointmentUseCaseTest {
         assertThat(result.canceledAt()).isEqualTo(TestFixtures.NOW);
         assertThat(result.orderId()).isEqualTo(appointment.orderId());
         verify(appointmentRepository).save(any(Appointment.class));
+        verify(emailOutboxService).cancelPending(1L);
         verify(auditService).record(
                 eq("admin@redekrill.com"),
                 eq(AuditAction.CANCEL),
@@ -125,5 +130,6 @@ class CancelAppointmentUseCaseTest {
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("Agendamento já está cancelado.");
         verify(appointmentRepository, never()).save(any());
+        verify(emailOutboxService, never()).cancelPending(any());
     }
 }

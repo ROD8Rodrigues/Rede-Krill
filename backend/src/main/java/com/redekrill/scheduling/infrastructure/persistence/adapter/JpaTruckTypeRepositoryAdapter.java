@@ -1,3 +1,14 @@
+/*
+ * Tipos de caminhão no banco.
+ *
+ * Vale a nota de nomenclatura: o port chama existsByName e a consulta real é
+ * existsByNameIgnoreCase. A comparação sem diferenciar maiúsculas é o comportamento
+ * desejado — "Truck" e "truck" são o mesmo cadastro — e o port não precisa carregar
+ * esse detalhe. Quem lê o adaptador entende onde a comparação acontece.
+ *
+ * save devolve truckType.withId(saved.getId()), mantendo o modelo da aplicação como
+ * resposta, porque a criação precisa do id gerado e de nada mais que a entity traga.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.adapter;
 
 import com.redekrill.scheduling.domain.model.TruckType;
@@ -11,6 +22,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+/**
+ * Implementação de TruckTypeRepository sobre Spring Data JPA.
+ */
 public class JpaTruckTypeRepositoryAdapter implements TruckTypeRepository {
 
     private final TruckTypeJpaRepository repository;

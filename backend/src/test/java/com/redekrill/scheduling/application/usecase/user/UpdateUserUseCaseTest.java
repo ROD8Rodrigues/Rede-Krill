@@ -10,6 +10,7 @@ import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.Role;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.model.User;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 import com.redekrill.scheduling.support.ImmediateTransactionRunner;
@@ -53,7 +54,8 @@ class UpdateUserUseCaseTest {
                 userRepository, passwordHasher, auditService,
                 new ImmediateTransactionRunner(),
                 authSessionService,
-                Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC)
+                Clock.fixed(TestFixtures.NOW, ZoneOffset.UTC),
+                new PasswordPolicy()
         );
     }
 
@@ -125,6 +127,25 @@ class UpdateUserUseCaseTest {
     }
 
     @Test
+    void keepsProfileChangesWhenThePasswordIsAlsoReplaced() {
+        when(userRepository.findById(2L)).thenReturn(Optional.of(TestFixtures.otherUser()));
+        when(passwordHasher.hash("NovaSenha@123")).thenReturn("novo-hash");
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, User.class));
+
+        UserResult result = useCase.execute(new UpdateUserCommand(
+                2L, "Operador Promovido", "promovido@redekrill.com", Role.ADMIN, true,
+                "NovaSenha@123", "admin@redekrill.com"));
+
+        // o pedido troca a senha E o cadastro: nenhum dos dois pode descartar o outro
+        assertThat(result.name()).isEqualTo("Operador Promovido");
+        assertThat(result.email()).isEqualTo("promovido@redekrill.com");
+        assertThat(result.role()).isEqualTo(Role.ADMIN);
+        assertThat(result.active()).isTrue();
+        assertThat(result.mustChangePassword()).isTrue();
+    }
+
+    @Test
     void rejectsMissingCommand() {
         assertThatThrownBy(() -> useCase.execute(null))
                 .isInstanceOf(DomainException.class)
@@ -178,6 +199,6 @@ class UpdateUserUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(new UpdateUserCommand(
                 1L, "Nome", "admin@redekrill.com", Role.ADMIN, true, "curta", "admin@redekrill.com")))
                 .isInstanceOf(DomainException.class)
-                .hasMessage("Senha deve ter pelo menos 8 caracteres.");
+                .hasMessage("A senha deve ter pelo menos 12 caracteres.");
     }
 }

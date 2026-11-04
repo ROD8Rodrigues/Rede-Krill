@@ -1,3 +1,20 @@
+/*
+ * Paletização e faixas horárias no mesmo controller, porque as duas coisas têm a mesma
+ * forma.
+ *
+ * São dados de referência: CRUD simples, sem estado que transite, sem política de
+ * negócio além de unicidade de nome e de "não apaga se há agendamento vinculado". Juntar
+ * os dois em um arquivo evita dois controllers de quarenta linhas que fariam a mesma
+ * pergunta ao Spring.
+ *
+ * A leitura é liberada para qualquer autenticado — o formulário de agendamento precisa
+ * das opções antes de criar qualquer coisa. A escrita é de ADMIN, e isso não está escrito
+ * aqui: a regra mora na SecurityFilterChain, e a anotação @Operation só avisa quem lê o
+ * Swagger.
+ *
+ * delete devolve 204 e o motivo da recusa, quando houver, vem do caso de uso como
+ * ConflictException — que o GlobalExceptionHandler traduz em 409 com a frase certa.
+ */
 package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.reference.CreatePalletizationTypeCommand;
@@ -40,6 +57,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * Rotas de dados de referência (tipos de paletização e faixas horárias). Não valida
+ * conteúdo além do Bean Validation do request; coerência entre os dados é do caso de uso.
+ */
 @RestController
 @RequestMapping("/api")
 @Tag(name = "Dados de referência")

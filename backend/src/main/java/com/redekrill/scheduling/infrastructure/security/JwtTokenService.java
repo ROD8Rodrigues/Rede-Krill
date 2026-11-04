@@ -1,3 +1,19 @@
+/*
+ * Assinatura e leitura dos access tokens.
+ *
+ * O contrato com a aplicação é o port TokenIssuer; aqui vive somente o jeito JWT de
+ * cumpri-lo: claims, chave e expiração. Quem decide se a sessão ainda vale não é esta
+ * classe — o filtro joga essa dúvida para AuthSessionService.
+ *
+ * Um detalhe que economiza dor de cabeça: a chave é lida como Base64. Configurar o
+ * segredo em texto puro faz o decode gerar bytes diferentes dos que você imagina, e o
+ * token passa a ser assinado com uma chave que ninguém escolheu de verdade.
+ *
+ * Em dev e test, a ausência de JWT_SECRET produz um segredo aleatório a cada boot. É
+ * conveniente e desconcertante ao mesmo tempo: os tokens emitidos antes de reiniciar
+ * param de validar sozinhos, e isso não é bug de parse, é a chave nova. Em produção a
+ * mesma ausência derruba a aplicação, de propósito.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.port.IssuedToken;
@@ -24,6 +40,10 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
 
+/**
+ * Emite e interpreta JWT assinado com HMAC, usando o mesmo Clock na emissão e na validação.
+ * Não consulta sessões nem decide acesso — só responde se o token é autêntico e o que ele diz.
+ */
 @Component
 public class JwtTokenService implements TokenIssuer {
 
@@ -66,6 +86,9 @@ public class JwtTokenService implements TokenIssuer {
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(key)
+                    // mesma fonte de tempo da emissão: mantém a expiração determinística
+                    // em teste e evita relógios diferentes nos dois lados do contrato.
+                    .clock(() -> Date.from(Instant.now(clock)))
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
@@ -97,7 +120,10 @@ public class JwtTokenService implements TokenIssuer {
         }
         try {
             return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        } catch (IllegalArgumentException | io.jsonwebtoken.security.WeakKeyException exception) {
+        } catch (IllegalArgumentException | JwtException exception) {
+            // JwtException cobre DecodingException (Base64 malformado) e WeakKeyException
+            // (segredo curto): sem capturá-los, o boot morria com "Illegal base64 character"
+            // em vez desta mensagem acionável.
             throw new IllegalStateException(
                     "JWT_SECRET inválido. Informe um segredo Base64 com pelo menos 256 bits.", exception);
         }

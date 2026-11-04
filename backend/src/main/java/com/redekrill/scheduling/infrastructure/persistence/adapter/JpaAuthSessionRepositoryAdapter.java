@@ -1,3 +1,19 @@
+/*
+ * Sessões de login no banco, incluindo as três operações em lote.
+ *
+ * revokeIfActive, revokeAllByUserId e deleteExpiredBefore são updates e deletes
+ * coletivos expressos como consulta única, e por isso cada um carrega @Transactional
+ * próprio: fora de um caso de uso que já abriu transação, é o adaptador quem garante o
+ * contexto para a modificação em massa.
+ *
+ * revokeIfActive devolve boolean a partir da contagem de linhas afetadas, e essa
+ * tradução é o coração da detecção de corrida na rotação de token: zero linhas
+ * significou que outro fio chegou primeiro, e o chamador trata isso como reuso.
+ *
+ * As duas chaves de leitura são o id (para o filtro conferir o claim sid) e o hash do
+ * refresh token (para a rotação achar a linha). A tabela não guarda o token cru, então
+ * não existe caminho para "buscar por token".
+ */
 package com.redekrill.scheduling.infrastructure.persistence.adapter;
 
 import com.redekrill.scheduling.domain.model.AuthSession;
@@ -11,6 +27,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 @Repository
+/**
+ * Implementação de AuthSessionRepository sobre Spring Data JPA.
+ */
 public class JpaAuthSessionRepositoryAdapter implements AuthSessionRepository {
 
     private final AuthSessionJpaRepository repository;
@@ -50,7 +69,7 @@ public class JpaAuthSessionRepositoryAdapter implements AuthSessionRepository {
 
     @Override
     @Transactional
-    public void deleteExpiredBefore(Instant instant) {
-        repository.deleteExpiredBefore(instant);
+    public int deleteExpiredBefore(Instant instant) {
+        return repository.deleteExpiredBefore(instant);
     }
 }

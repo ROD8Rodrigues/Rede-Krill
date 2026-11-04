@@ -39,7 +39,7 @@
             icon="pi pi-search"
             class="p-button-primary shadow-sm"
             :loading="loading"
-            @click="loadReport"
+            @click="reloadFromFirstPage"
           />
           <Button label="Este Mês" severity="secondary" text size="small" @click="setThisMonth" />
           <Button
@@ -122,8 +122,8 @@
             Detalhamento dos Agendamentos no Período
           </h3>
           <p class="text-xs text-slate-500">
-            Exibindo {{ filteredAppointments.length }} de
-            {{ report?.appointments?.length || 0 }} registros.
+            Exibindo {{ report?.appointments?.length || 0 }} de
+            {{ report?.matchingAppointments || 0 }} registros do período.
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -136,6 +136,7 @@
           <select
             id="status-filter"
             v-model="statusFilter"
+            @change="reloadFromFirstPage"
             class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
           >
             <option value="ALL">Todos</option>
@@ -145,12 +146,16 @@
         </div>
       </div>
       <DataTable
-        :value="filteredAppointments"
+        :value="report?.appointments || []"
         :loading="loading"
         paginator
-        :rows="10"
+        lazy
+        :first="first"
+        :rows="pageSize"
+        :totalRecords="totalRecords"
         responsiveLayout="scroll"
         class="p-datatable-sm"
+        @page="onPage"
       >
         <template #empty>
           <div class="py-12 text-center">
@@ -272,21 +277,17 @@ const toast = useToast()
 const loading = ref(false)
 const report = ref(null)
 const statusFilter = ref('ALL')
+const first = ref(0)
+const pageSize = ref(10)
 
 const filters = reactive({
   startDate: '',
   endDate: ''
 })
 
-const filteredAppointments = computed(() => {
-  const appointments = report.value?.appointments || []
-  if (statusFilter.value === 'ALL') return appointments
-  return appointments.filter((item) => item.status === statusFilter.value)
-})
+const totalRecords = computed(() => report.value?.matchingAppointments ?? 0)
 
-const canceledCount = computed(
-  () => (report.value?.appointments || []).filter((item) => item.status === 'CANCELED').length
-)
+const canceledCount = computed(() => report.value?.totalCanceled ?? 0)
 
 function formatDate(isoDate) {
   if (!isoDate) return ''
@@ -321,7 +322,7 @@ function setThisMonth() {
   const pad = (n) => String(n).padStart(2, '0')
   filters.startDate = `${year}-${pad(month + 1)}-01`
   filters.endDate = `${year}-${pad(month + 1)}-${pad(lastDay.getDate())}`
-  loadReport()
+  reloadFromFirstPage()
 }
 
 function setLast7Days() {
@@ -332,6 +333,17 @@ function setLast7Days() {
   const pad = (n) => String(n).padStart(2, '0')
   filters.startDate = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`
   filters.endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  reloadFromFirstPage()
+}
+
+function onPage(event) {
+  first.value = event.first
+  pageSize.value = event.rows
+  loadReport()
+}
+
+function reloadFromFirstPage() {
+  first.value = 0
   loadReport()
 }
 
@@ -358,7 +370,11 @@ async function loadReport() {
 
   loading.value = true
   try {
-    report.value = await reportService.getAppointmentReport(filters.startDate, filters.endDate)
+    report.value = await reportService.getAppointmentReport(filters.startDate, filters.endDate, {
+      page: Math.floor(first.value / pageSize.value),
+      size: pageSize.value,
+      status: statusFilter.value === 'ALL' ? null : statusFilter.value
+    })
   } catch (error) {
     console.error('Erro ao gerar relatório:', error)
     toast.add({

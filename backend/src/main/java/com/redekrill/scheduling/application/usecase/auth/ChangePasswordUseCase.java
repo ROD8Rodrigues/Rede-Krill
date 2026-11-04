@@ -1,3 +1,19 @@
+/*
+ * Troca de senha pelo próprio usuário, com o detalhe transacional que importa.
+ *
+ * A política é validada antes de abrir transação: "senha nova fraca" é erro de
+ * entrada, não de estado. Dentro dela, a senha atual é conferida contra o hash.
+ *
+ * Quando a atual não bate, o caso de uso não lança ali mesmo. Ele devolve o usuário
+ * para fora da transação e só então registra a auditoria e recusa. Fazer as duas
+ * coisas dentro do mesmo escopo é o jeito de perder o indício: o rollback da exceção
+ * apagaria justamente o log que documenta a tentativa.
+ *
+ * Dando certo, a senha nova tem de ser diferente da atual — trocar para a mesma é
+ * fingir a troca sem ganhar nada. Depois de gravar, todas as sessões do usuário
+ * caem: quem mudou a senha tem de reentrar com ela, e os tokens velhos perdem o
+ * direito de existir.
+ */
 package com.redekrill.scheduling.application.usecase.auth;
 
 import com.redekrill.scheduling.application.port.PasswordHasher;
@@ -8,19 +24,16 @@ import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
 import com.redekrill.scheduling.domain.exception.DomainException;
 import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.User;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
 
+/**
+ * Alteração da própria senha, com revogação de sessões.
+ */
 public class ChangePasswordUseCase {
-
-    private static final int MIN_LENGTH = 12;
-    private static final List<String> FORBIDDEN_PASSWORDS = List.of(
-            "admin@12345", "redekrill", "password", "senha123456", "123456789012"
-    );
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -28,19 +41,22 @@ public class ChangePasswordUseCase {
     private final AuditService auditService;
     private final TransactionRunner transactionRunner;
     private final Clock clock;
+    private final PasswordPolicy passwordPolicy;
 
     public ChangePasswordUseCase(UserRepository userRepository,
                                  PasswordHasher passwordHasher,
                                  AuthSessionService authSessionService,
                                  AuditService auditService,
                                  TransactionRunner transactionRunner,
-                                 Clock clock) {
+                                 Clock clock,
+                                 PasswordPolicy passwordPolicy) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.authSessionService = authSessionService;
         this.auditService = auditService;
         this.transactionRunner = transactionRunner;
         this.clock = clock;
+        this.passwordPolicy = passwordPolicy;
     }
 
     public void execute(String actorEmail, String currentPassword, String newPassword) {
@@ -50,18 +66,18 @@ public class ChangePasswordUseCase {
         if (currentPassword == null || currentPassword.isBlank()) {
             throw new DomainException("Senha atual é obrigatória.");
         }
-        validateNewPassword(newPassword);
+        passwordPolicy.validate(newPassword, "A nova senha");
 
-        transactionRunner.execute(() -> {
+        User rejected = transactionRunner.execute(() -> {
             User user = userRepository.findByEmail(actorEmail)
                     .filter(User::active)
                     .orElseThrow(() -> new AuthenticationFailedException(
                             "Usuário autenticado não encontrado ou inativo."));
 
             if (!passwordHasher.matches(currentPassword, user.passwordHash())) {
-                auditService.record(user.email(), AuditAction.PASSWORD_CHANGE, "User", user.id(),
-                        "Troca de senha recusada: senha atual inválida.");
-                throw new AuthenticationFailedException("Senha atual inválida.");
+                // A recusa é devolvida para fora da transação: registrar a auditoria aqui
+                // e lançar em seguida faria o próprio rollback apagar o indício da tentativa.
+                return user;
             }
             if (passwordHasher.matches(newPassword, user.passwordHash())) {
                 throw new DomainException("A nova senha deve ser diferente da senha atual.");
@@ -74,23 +90,11 @@ public class ChangePasswordUseCase {
             authSessionService.revokeAllForUser(user.id());
             return null;
         });
-    }
 
-    private void validateNewPassword(String password) {
-        if (password == null || password.length() < MIN_LENGTH) {
-            throw new DomainException(
-                    "A nova senha deve ter pelo menos %d caracteres.".formatted(MIN_LENGTH));
-        }
-        if (password.length() > 72) {
-            throw new DomainException("A nova senha deve ter no máximo 72 caracteres.");
-        }
-        boolean hasLetter = password.chars().anyMatch(Character::isLetter);
-        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
-        if (!hasLetter || !hasDigit) {
-            throw new DomainException("A nova senha deve conter letras e números.");
-        }
-        if (FORBIDDEN_PASSWORDS.contains(password.toLowerCase(Locale.ROOT))) {
-            throw new DomainException("A nova senha é conhecida ou insegura. Escolha outra.");
+        if (rejected != null) {
+            auditService.record(rejected.email(), AuditAction.PASSWORD_CHANGE, "User", rejected.id(),
+                    "Troca de senha recusada: senha atual inválida.");
+            throw new AuthenticationFailedException("Senha atual inválida.");
         }
     }
 }

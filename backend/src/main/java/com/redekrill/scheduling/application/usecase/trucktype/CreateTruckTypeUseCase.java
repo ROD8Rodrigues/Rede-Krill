@@ -1,3 +1,14 @@
+/*
+ * Cadastro de um tipo de caminhão — o mais simples dos quatro.
+ *
+ * Nome e descrição, e nenhuma regra de capacidade envolvida: o veículo não altera a conta de
+ * pallets, que depende da quantidade declarada e do multiplicador da paletização. Por isso não
+ * há validação de peso, eixos ou cubagem — nada disso é requisito do teste, e inventar regra
+ * aqui seria justamente o tipo de extrapolação a evitar.
+ *
+ * A descrição é opcional: vazia ou só espaço vira null no modelo, em vez de string
+ * vazia poluindo a tabela.
+ */
 package com.redekrill.scheduling.application.usecase.trucktype;
 
 import com.redekrill.scheduling.application.dto.trucktype.CreateTruckTypeCommand;
@@ -12,6 +23,9 @@ import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 import java.time.Clock;
 import java.time.Instant;
 
+/**
+ * Cadastra um tipo de caminhão com nome único.
+ */
 public class CreateTruckTypeUseCase {
 
     private final TruckTypeRepository truckTypeRepository;

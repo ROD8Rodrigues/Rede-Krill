@@ -218,7 +218,7 @@ Versão antiga da aplicação **não funciona** contra o banco novo? Na prática
 |---|---|
 | Credencial suspeita / token capturado | Desative o usuário (`active=false`) — derruba na próxima requisição. Registre em `audit_log` a investigação |
 | `LOGIN_FAILED` em massa de um e-mail | Brute force direcionado: o lockout já está agindo. Se distribuído por IP, ver `ip_address` em `auth_session` e bloquear na borda |
-| Reuso do mesmo refresh token (erros `401` em série na mesma conta) | Provável roubo ou cliente com duas abas disputando. **A revogação em cascata ainda é manual** (limitação `SEC-04`): `UPDATE auth_session SET revoked_at = now() WHERE user_id = ? AND revoked_at IS NULL;` e force nova senha |
+| Reuso do mesmo refresh token (erros `401` em série na mesma conta) | **Revogação em cascata automática** (implementada em 03/11/2026 — adendo do `ADR-001`): reutilizar um token já consumido revoga **todas as sessões do usuário** e registra `REFRESH_TOKEN_REUSE` na auditoria (`AuthSessionService.java:121-150`). Fallback manual, se ambiente exigir: `UPDATE auth_session SET revoked_at = now() WHERE user_id = ? AND revoked_at IS NULL;` e força nova senha |
 | Requisição com `Authorization` de outro sistema aparecendo nos logs | O header não é gravado em `audit_log` por design; confirme e investigue o logger customizado |
 | Payload sensível em `email_outbox.last_error` | `VARCHAR(1000)` e contém a mensagem do SMTP; revise após correção do servidor de mail |
 
@@ -238,7 +238,7 @@ Nada disso foi testado contra ambiente em execução — são instruções deriv
 - [ ] Backup automático do PostgreSQL + teste de restauração
 - [ ] `docker compose config` validado (⚠️ ainda não feito — sem Docker nesta máquina)
 - [ ] CI verde no commit da reforma (⚠️ ainda não executado sobre este código)
-- [ ] OWASP Dependency-Check rodado com `NVD_API_KEY` e triado (⚠️ pendente, `SEC-03`)
+- [ ] OWASP Dependency-Check rodado com `NVD_API_KEY` e triado — já executado em 03/11/2026 **sem** chave nesta máquina (cache local do NVD, 911 registros): BUILD SUCCESS, 0 vulneráveis em 86 componentes; relatório em `backend/target/dependency-check/` (`SEC-03` tratada — `SECURITY_REPORT.md` §11). A varredura agendada com `NVD_API_KEY` fica no CI.
 - [ ] Logs com `correlationId` chegando ao coletor; métrica do outbox monitorada
 - [ ] Usuários finais sem credenciais compartilhadas e com troca de senha concluída
 

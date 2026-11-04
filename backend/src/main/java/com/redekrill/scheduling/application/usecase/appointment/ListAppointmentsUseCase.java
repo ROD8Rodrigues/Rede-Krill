@@ -1,3 +1,20 @@
+/*
+ * A listagem paginada que alimenta a tela de agendamentos.
+ *
+ * As duas sentinelas de data existem porque a consulta do repositório usa um
+ * between: não há caminho "sem limite inferior" no JPQL. Quando o cliente não
+ * informa um dos lados, este caso de uso completa com 1970-01-01 ou 9999-12-31, e a
+ * faixa fica aberta na prática sem mentir para a query.
+ *
+ * A data inicial posterior à final é recusada antes de tocar o banco — uma
+ * consulta impossível devolveria lista vazia e o usuário acharia que não há
+ * agendamentos.
+ *
+ * O PageResult volta remontado porque o repositório devolve modelos Appointment e
+ * a resposta precisa de DTOs; os metadados de página (número, tamanho, totais) são
+ * copiados, não recalculados. A ordem vem da consulta: data,
+ * horário da faixa e id, todos descendentes.
+ */
 package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentResult;
@@ -9,6 +26,9 @@ import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 
 import java.time.LocalDate;
 
+/**
+ * Busca paginada de agendamentos por período.
+ */
 public class ListAppointmentsUseCase {
 
     private static final LocalDate MIN_DATE = LocalDate.of(1970, 1, 1);

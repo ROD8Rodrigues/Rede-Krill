@@ -1,3 +1,10 @@
+/*
+ * Mesmos campos da criação, tipo separado.
+ *
+ * A duplicação é barata e compra uma coisa concreta: dá para relaxar ou apertar a edição
+ * sem tocar no que a criação aceita. Editar tipo de paletização tem efeito diferente —
+ * mexe em faixas já ocupadas — e um dia isso pode virar regra só aqui.
+ */
 package com.redekrill.scheduling.presentation.request;
 
 import jakarta.validation.constraints.Max;

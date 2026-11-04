@@ -1,3 +1,23 @@
+/*
+ * Transforma o token que chegou em um usuário conhecido pelo Spring Security.
+ *
+ * A ordem das checagens importa mais do que parece: primeiro o parse (assinatura e
+ * expiração), depois a presença do claim sid, então a sessão no banco e por último o
+ * usuário ativo. Uma conta desativada com token ainda válido para aqui, e isso é
+ * decisão de segurança, não otimização.
+ *
+ * Fonte do token: o cabeçalho Authorization tem prioridade sobre o cookie de access. O
+ * header só chega se quem chama colocou ali de propósito; o cookie o navegador envia
+ * sozinho, e por isso ele fica em segundo plano quando os dois existem.
+ *
+ * Este filtro não devolve erro. Se qualquer checagem falhar, a cadeia segue sem
+ * autenticação e o 401 chega depois, do RestAuthenticationEntryPoint. Também não
+ * sobrescreve uma autenticação já presente no contexto.
+ *
+ * Os dois atributos gravados aqui são a forma de passar decisão adiante sem nova
+ * consulta: MUST_CHANGE_PASSWORD é lido por PasswordChangeRequiredFilter e SESSION_ID
+ * pelo AuthController, no logout.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import com.redekrill.scheduling.application.dto.auth.AuthRequestAttributes;
@@ -21,6 +41,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Filtro de autenticação: valida o token, confirma sessão e conta ativa e popula o contexto.
+ * Não autoriza rota nenhuma — quem decide o que cada papel pode fazer é SecurityConfig.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

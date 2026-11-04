@@ -1,3 +1,25 @@
+/*
+ * O agendamento como a tabela appointment o enxerga.
+ *
+ * Espelho do modelo de domínio, com as três coisas que só a persistência precisa: as
+ * anotações de mapeamento, as relações preguiçosas e a coluna de versão. As relações são
+ * @ManyToOne com LAZY de propósito, e quem lê agendamento compensa isso com @EntityGraph
+ * nas consultas do repositório.
+ *
+ * Três decisões de coluna que alguém vai questionar:
+ * - order_id é unique e o banco tem índice único sobre ele. O caso de uso checa antes, mas
+ *   a garantia real é a constraint: duas requisições simultâneas passam pela checagem de
+ *   memória e esbarram no banco na hora de gravar.
+ * - status é texto ('ACTIVE' / 'CANCELED'), não número. Enumerado por posição quebraria o
+ *   histórico se a ordem dos valores mudasse.
+ * - effective_pallets é gravado, não derivado. Guardar o resultado do multiplicador deixa
+ *   as somas de capacidade em uma coluna só; o preço é que um tipo de paletização editado
+ *   depois não recalcula os agendamentos antigos. É o preço de ter a soma em uma
+ *   coluna só.
+ *
+ * Lombok gera getter, setter e o construtor vazio que o JPA exige. Nada de regra de
+ * negócio mora aqui — quem valida é o modelo Appointment.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
 import com.redekrill.scheduling.domain.model.AppointmentStatus;
@@ -25,6 +47,9 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Mapeamento JPA da tabela appointment.
+ */
 public class AppointmentJpaEntity {
 
     @Id

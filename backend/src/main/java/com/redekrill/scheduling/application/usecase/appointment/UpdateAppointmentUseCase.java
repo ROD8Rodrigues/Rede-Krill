@@ -1,3 +1,20 @@
+/*
+ * A edição do agendamento, quase igual à criação e diferente em dois pontos.
+ *
+ * Primeiro: as somas de capacidade usam as variantes "Excluding", que removem o
+ * próprio registro do total. Sem isso, o agendamento em edição contaria duas vezes e
+ * o aviso acusaria uma ocupação inflada.
+ *
+ * Segundo: nada de e-mail. A resposta devolve emailQueued falso e a fila não recebe
+ * mensagem nova — editar data ou faixa sem avisar o fornecedor é um risco conhecido
+ * e aceito neste escopo, não um esquecimento do código.
+ *
+ * A checagem de pedido duplicado usa AndIdNot porque o próprio registro já carrega
+ * aquele orderId; exigir apenas "existe" recusaria toda edição que não muda o número.
+ *
+ * O ator é obrigatório na forma (validate), mas não é procurado no banco como na
+ * criação: a autenticação já respondeu que ele existe.
+ */
 package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
@@ -25,6 +42,9 @@ import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 import java.time.Clock;
 import java.time.Instant;
 
+/**
+ * Atualização de um agendamento, com reavaliação de capacidade.
+ */
 public class UpdateAppointmentUseCase {
 
     private final AppointmentRepository appointmentRepository;

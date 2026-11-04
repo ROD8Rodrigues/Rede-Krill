@@ -1,3 +1,13 @@
+/*
+ * Auditoria no banco: uma escrita e uma leitura paginada, nada além.
+ *
+ * Não há update nem delete neste adaptador, e isso é a fronteira da trilha — o que
+ * foi gravado não se reescreve. A ordem (createdAt desc, id desc) é aplicada aqui, no
+ * PageRequest, porque o caso de uso de listagem não conhece Pageable nem Sort.
+ *
+ * save devolve o modelo com o id gerado. A entity salva não é mapeada de volta: o log
+ * já estava completo antes de ir, e não há coluna calculada pelo banco.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.adapter;
 
 import com.redekrill.scheduling.domain.model.AuditLog;
@@ -12,6 +22,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * Implementação de AuditLogRepository sobre Spring Data JPA.
+ */
 public class JpaAuditLogRepositoryAdapter implements AuditLogRepository {
 
     private final AuditLogJpaRepository repository;

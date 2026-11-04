@@ -223,10 +223,10 @@
             id="user-password"
             v-model="form.password"
             type="password"
-            minlength="8"
+            minlength="12"
             maxlength="72"
             :placeholder="
-              editingId ? 'Preencha apenas se for alterar a senha' : 'Mínimo de 8 caracteres'
+              editingId ? 'Preencha apenas se for alterar a senha' : 'Mínimo de 12 caracteres'
             "
             autocomplete="new-password"
             class="w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1"
@@ -239,6 +239,9 @@
           </p>
           <p v-else-if="editingId" class="mt-1 text-[11px] text-slate-400">
             Deixe em branco para manter a senha atual.
+          </p>
+          <p v-else class="mt-1 text-[11px] text-slate-400">
+            Mínimo de {{ MIN_PASSWORD_LENGTH }} caracteres, com letras e números.
           </p>
         </div>
 
@@ -279,7 +282,7 @@ import { useAuthStore } from '../stores/auth'
 import { userService } from '../services/userService'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const MIN_PASSWORD_LENGTH = 8
+const MIN_PASSWORD_LENGTH = 12
 const MAX_PASSWORD_LENGTH = 72
 
 const auth = useAuthStore()
@@ -425,9 +428,11 @@ function validateForm() {
     errors.password = 'Senha é obrigatória.'
   } else if (form.password) {
     if (form.password.length < MIN_PASSWORD_LENGTH) {
-      errors.password = `Senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
+      errors.password = `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
     } else if (form.password.length > MAX_PASSWORD_LENGTH) {
-      errors.password = `Senha deve ter no máximo ${MAX_PASSWORD_LENGTH} caracteres.`
+      errors.password = `A senha deve ter no máximo ${MAX_PASSWORD_LENGTH} caracteres.`
+    } else if (!/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
+      errors.password = 'A senha deve conter letras e números.'
     }
   }
 

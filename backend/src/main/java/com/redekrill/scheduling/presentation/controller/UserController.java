@@ -1,3 +1,19 @@
+/*
+ * Administração de contas, e nenhuma rota de exclusão.
+ *
+ * A escolha é do domínio, não do controller: usuário tem vínculo com agendamento criado
+ * e com trilha de auditoria por e-mail, então apagar a linha deixaria histórico órfão. O
+ * PUT leva o campo active, e desativar é o que interrompe o acesso — o filtro de
+ * autenticação recusa conta inativa mesmo com token válido.
+ *
+ * create exige senha com as mesmas 12 a 72 caracteres da troca de senha; update aceita
+ * senha opcional, e quando ela vem o caso de uso troca o hash, marca troca obrigatória e
+ * derruba as sessões ativas da conta. Desativar a conta tem o mesmo efeito sobre as
+ * sessões — os dois caminhos estão no PUT, e nada disso está no controller.
+ *
+ * list devolve página com os campos de conta, nunca o hash — o mapeamento para
+ * UserResponse não tem como incluir o que não chega no resultado da aplicação.
+ */
 package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.user.CreateUserCommand;
@@ -27,6 +43,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Rotas de usuário (criação, edição, listagem), todas sob ADMIN pela cadeia de filtros.
+ * Não expõe senha nem hash em nenhuma resposta.
+ */
 @RestController
 @RequestMapping("/api/users")
 @Tag(name = "Usuários")

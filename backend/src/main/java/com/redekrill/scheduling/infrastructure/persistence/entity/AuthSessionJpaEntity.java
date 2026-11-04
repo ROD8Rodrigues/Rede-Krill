@@ -1,3 +1,18 @@
+/*
+ * A sessão de login, que é o que dá ao JWT um lugar para ser revogado.
+ *
+ * O campo central é refresh_token_hash, unique e com 64 caracteres: é o resumo SHA-256 em
+ * hexadecimal do token de renovação. A linha nunca guarda o token cru — o que vira cookie
+ * só existe no instante da emissão, e quem tiver acesso à tabela não consegue reinventar o
+ * valor a partir do resumo.
+ *
+ * user_id é número simples, sem @ManyToOne: a revogação em cascata é um update coletivo por
+ * usuário, e os dados da pessoa são lidos por UserRepository quando importa.
+ *
+ * Os três instantes separam os modos de morte de uma sessão. expires_at é a data natural,
+ * revoked_at é morte antecipada (logout, rotação ou reuso detectado), e a linha sem
+ * nenhum dos dois é a sessão viva que o filtro confere pelo claim sid.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
 import jakarta.persistence.Column;
@@ -17,6 +32,9 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Mapeamento JPA da tabela auth_session.
+ */
 public class AuthSessionJpaEntity {
 
     @Id

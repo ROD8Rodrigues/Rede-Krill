@@ -23,7 +23,7 @@ Adotar sessão **com estado no servidor**, materializada em tokens de curta dura
 - **Access token**: JWT HMAC assinado, validade padrão **15 minutos** (`JWT_ACCESS_EXPIRATION`), entregue **exclusivamente** em cookie `HttpOnly` (`redekrill_access`, path `/`).
 - **Refresh token**: opaco, 32 bytes de `SecureRandom`, validade padrão **7 dias** (`JWT_REFRESH_EXPIRATION`), entregue em cookie `HttpOnly` com **path restrito a `/api/auth`**.
 - **Binding de revogação**: o JWT carrega a claim `sid` com o id da sessão. A autenticação exige `sessionId != null` **e** `authSessionService.isActive(sessionId)`; o usuário também é recarregado do banco a cada requisição, e `User::active` é revalidado.
-- **Rotação de uso único**: cada `POST /api/auth/refresh` revoga a sessão anterior com `revokeIfActive` (UPDATE condicional) e cria uma nova. Reuso do mesmo refresh token falha com `401`.
+- **Rotação de uso único**: cada `POST /api/auth/refresh` revoga a sessão anterior com `revokeIfActive` (UPDATE condicional) e cria uma nova. Reuso do mesmo refresh token falha com `401`. Desde 2026-11-03 o reuso também **revoga a família inteira** de sessões do usuário (`revokeAllByUserId`) e grava `REFRESH_TOKEN_REUSE` na auditoria — ver *Adendo* abaixo.
 - **Persistência**: `auth_session` guarda apenas o **hash SHA-256** do refresh token com índice único; IP e User-Agent são registrados para investigação.
 - **Corpo da resposta**: o token só aparece no JSON quando `AUTH_EXPOSE_TOKEN_IN_RESPONSE=true`, aceito apenas nos perfis `dev`/`test`. Em produção o validador de configuração recusa iniciar com essa flag ligada.
 - **Encerramento**: `logout` revoga por hash e por `sid` e limpa os dois cookies; `change-password` revoga **todas** as sessões do usuário.
@@ -43,7 +43,7 @@ Adotar sessão **com estado no servidor**, materializada em tokens de curta dura
 - A sessão sobrevive ao restart da aplicação (está no banco), mas o access token emitido com segredo efêmero de desenvolvimento morre — comportamento desejado e documentado.
 
 **Riscos aceitos e registrados**
-- `SEC-04` do `SECURITY_REPORT.md`: reuso de refresh token é rejeitado, mas **não** revoga as demais sessões do usuário nem gera auditoria específica. Fechável em iteração futura.
+- ~~`SEC-04` do `SECURITY_REPORT.md`: reuso de refresh token é rejeitado, mas **não** revoga as demais sessões do usuário nem gera auditoria específica. Fechável em iteração futura.~~ **Fechado em 2026-11-03** — ver *Adendo: detecção de reuso com cascata* ao final.
 - `SEC-01`: o lockout de login é local à instância. Com mais de uma réplica, o rate limit precisa de store compartilhado.
 - Cookies exigem HTTPS em produção (`AUTH_COOKIE_SECURE=true`, imposto pelo validador) e CORS com `allowCredentials(true)` com origens explícitas.
 
@@ -58,7 +58,24 @@ Adotar sessão **com estado no servidor**, materializada em tokens de curta dura
 | Claim `sid` no access token | `.../infrastructure/security/JwtTokenService.java:47-63` |
 | Tabela `auth_session` (hash único, IP, UA, índices) | `backend/src/main/resources/db/migration/V5__security_sessions_and_integrity.sql:13-27` |
 | Clientes com credenciais, refresh serializado | `frontend/src/services/api.js` (`withCredentials`, `refreshSession`) |
-| Segredo efêmero só em dev/test | `.../infrastructure/security/JwtTokenService.java:86-103` |
+| Segredo efêmero só em dev/test | `.../infrastructure/security/JwtTokenService.java:89-108` |
+
+## Adendo: detecção de reuso com cascata (2026-11-03)
+
+O risco `SEC-04` deste ADR dizia que o reuso era rejeitado mas inofensivo para as demais sessões. Passou a ser tratado assim, no `application` (sem vazar política para a borda HTTP):
+
+| Passo | Onde |
+|---|---|
+| `rotate()` abre a transação, consome/valida a sessão e **devolve** um resultado em vez de lançar exceção de reuso | `application/service/AuthSessionService.java:79-92` |
+| Reuso detectado (`session.revoked()` em `AuthSessionService.java:102-107` **ou** corrida em `revokeIfActive`, `:118-122`) → `revokeAllByUserId` na família inteira, dentro da mesma transação | `application/service/AuthSessionService.java:99-122` |
+| Auditoria `REFRESH_TOKEN_REUSE` gravada **fora** da transação, depois do commit | `AuthSessionService.java:87-89` + `:126-131` |
+| Exceção `AuthenticationFailedException` lançada **fora** da transação | `AuthSessionService.java:88-90` |
+
+**Por que a ordem importa (armadilha real, não estilística).** Numa versão anterior, a revogação e a auditoria eram escritas e a exceção lançada *dentro* da mesma transação: `@Transactional` faz rollback em `RuntimeException` e **desfazia a revogação** — o atacante recebia `401` e as sessões roubadas continuavam ativas. O padrão adotado é: escrever o que precisa sobreviver dentro da transação, lançar fora dela. O mesmo critério vale para a auditoria, que não pode ser perdida junto com o rollback.
+
+**Verificação.** Unitária: `AuthSessionServiceTest` (13 casos, incluindo a cascata). De runtime, contra o jar empacotado: replay do refresh consumido → `401 Sessão expirada ou revogada`, `auth_session` da vítima com **3 revogadas / 0 ativas**, a sessão legítima (token novo) também cai, e `REFRESH_TOKEN_REUSE` aparece em `GET /api/audit-logs`. Transcrição em `docs/VALIDACAO_FINAL.md` §3.3.
+
+**Expiração do access token, agora testável.** `JwtTokenService` sempre recebeu um `Clock`, mas só o usava para **emitir**; a verificação comparava `exp` com o relógio interno do JJWT, então nenhum teste exercitava o ramo que rejeita token vencido (`SEC-30`). O parser passou a receber o mesmo `Clock` (`JwtTokenService.java:65-73`), e `JwtTokenServiceTest.rejectsTheTokenOnceTheExpirationHasPassed` cobre os dois lados da fronteira (exp−1 s aceito, exp+1 s rejeitado) em tempo determinístico.
 
 ## Alternativas consideradas
 

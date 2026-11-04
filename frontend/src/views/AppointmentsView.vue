@@ -149,20 +149,28 @@
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+          <label
+            for="filter-start-date"
+            class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1"
+          >
             Data Inicial
           </label>
           <input
+            id="filter-start-date"
             v-model="filters.startDate"
             type="date"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
           />
         </div>
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+          <label
+            for="filter-end-date"
+            class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1"
+          >
             Data Final
           </label>
           <input
+            id="filter-end-date"
             v-model="filters.endDate"
             type="date"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-krill-500 focus:outline-none focus:ring-1 focus:ring-krill-500"
@@ -360,10 +368,11 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <!-- ID Pedido -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label for="modal-order-id" class="block text-xs font-semibold text-slate-700 mb-1">
               ID Pedido <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-order-id"
               v-model.number="form.orderId"
               type="number"
               min="1"
@@ -379,10 +388,11 @@
 
           <!-- Data do Agendamento -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label for="modal-date" class="block text-xs font-semibold text-slate-700 mb-1">
               Data do Agendamento <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-date"
               v-model="form.date"
               type="date"
               required
@@ -392,10 +402,14 @@
 
           <!-- Nome do Fornecedor -->
           <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label
+              for="modal-supplier-name"
+              class="block text-xs font-semibold text-slate-700 mb-1"
+            >
               Nome do Fornecedor <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-supplier-name"
               v-model="form.supplierName"
               type="text"
               maxlength="80"
@@ -408,10 +422,14 @@
 
           <!-- E-mail do Fornecedor -->
           <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label
+              for="modal-supplier-email"
+              class="block text-xs font-semibold text-slate-700 mb-1"
+            >
               E-mail do Fornecedor <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-supplier-email"
               v-model="form.supplierEmail"
               type="email"
               maxlength="80"
@@ -424,10 +442,11 @@
 
           <!-- Placa do Caminhão -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label for="modal-truck-plate" class="block text-xs font-semibold text-slate-700 mb-1">
               Placa do Caminhão <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-truck-plate"
               v-model="form.truckPlate"
               type="text"
               maxlength="20"
@@ -439,10 +458,11 @@
 
           <!-- Tipo de Caminhão -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label for="modal-truck-type" class="block text-xs font-semibold text-slate-700 mb-1">
               Tipo de Caminhão <span class="text-red-500">*</span>
             </label>
             <Select
+              input-id="modal-truck-type"
               v-model="form.truckTypeId"
               :options="truckTypes"
               optionLabel="name"
@@ -454,10 +474,11 @@
 
           <!-- Faixa Horária -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label for="modal-time-slot" class="block text-xs font-semibold text-slate-700 mb-1">
               Faixa Horária <span class="text-red-500">*</span>
             </label>
             <Select
+              input-id="modal-time-slot"
               v-model="form.timeSlotId"
               :options="timeSlots"
               optionLabel="label"
@@ -469,10 +490,14 @@
 
           <!-- Tipo de Paletização -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label
+              for="modal-palletization"
+              class="block text-xs font-semibold text-slate-700 mb-1"
+            >
               Paletização <span class="text-red-500">*</span>
             </label>
             <Select
+              input-id="modal-palletization"
               v-model="form.palletizationTypeId"
               :options="palletizationTypes"
               optionLabel="name"
@@ -483,10 +508,14 @@
 
           <!-- Quantidade de Pallets -->
           <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">
+            <label
+              for="modal-pallet-quantity"
+              class="block text-xs font-semibold text-slate-700 mb-1"
+            >
               Quantidade de Pallets <span class="text-red-500">*</span>
             </label>
             <input
+              id="modal-pallet-quantity"
               v-model.number="form.palletQuantity"
               type="number"
               min="1"
@@ -498,8 +527,11 @@
 
           <!-- Observação -->
           <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-700 mb-1"> Observação </label>
+            <label for="modal-notes" class="block text-xs font-semibold text-slate-700 mb-1">
+              Observação
+            </label>
             <textarea
+              id="modal-notes"
               v-model="form.notes"
               rows="3"
               maxlength="500"

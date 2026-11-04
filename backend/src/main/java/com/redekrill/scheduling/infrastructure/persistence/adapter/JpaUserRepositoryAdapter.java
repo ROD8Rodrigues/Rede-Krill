@@ -1,3 +1,15 @@
+/*
+ * Usuários no banco, com a normalização de e-mail resolvida em SQL.
+ *
+ * As três buscas por e-mail usam a variante IgnoreCase do Spring Data. Isso importa
+ * porque o login normaliza o texto para minúsculas antes de consultar, mas a coluna
+ * guarda o que foi digitado: conferir sem diferenciar maiúsculas é o que faz o cadastro
+ * e a autenticação baterem com a mesma conta.
+ *
+ * findAll ordena por nome, então a tela de administração vem em ordem alfabética sem que
+ * o caso de uso precise saber de Sort. save devolve o modelo com o id gerado, e a
+ * optimistic locking fica a cargo da coluna version, que viaja no mapper.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.adapter;
 
 import com.redekrill.scheduling.domain.model.PageResult;
@@ -14,6 +26,9 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
+/**
+ * Implementação de UserRepository sobre Spring Data JPA.
+ */
 public class JpaUserRepositoryAdapter implements UserRepository {
 
     private final UserJpaRepository repository;

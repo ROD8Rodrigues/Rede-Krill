@@ -1,3 +1,14 @@
+/*
+ * Exclusão de um tipo de caminhão, barrada por uso.
+ *
+ * A checagem existsByTruckTypeId é a diferença entre um delete seguro e uma
+ * referência pendurada: o agendamento guarda a FK do tipo, e um cadastro que some com
+ * linhas apontando para ele quebra a leitura de quem consulta.
+ *
+ * O nome vai para a auditoria lido antes da remoção, e o transactionRunner envolve os
+ * dois — apagar sem registrar seria perder a explicação de quem tirou o tipo do
+ * catálogo.
+ */
 package com.redekrill.scheduling.application.usecase.trucktype;
 
 import com.redekrill.scheduling.application.port.TransactionRunner;
@@ -9,6 +20,9 @@ import com.redekrill.scheduling.domain.model.TruckType;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.domain.repository.TruckTypeRepository;
 
+/**
+ * Remove um tipo de caminhão que nenhum agendamento usa.
+ */
 public class DeleteTruckTypeUseCase {
 
     private final TruckTypeRepository truckTypeRepository;

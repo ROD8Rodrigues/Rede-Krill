@@ -27,6 +27,11 @@ app:
     login-max-attempts-per-ip: 100
     login-window: 15m
     login-lockout: 5m
+    session-expired-retention: 7d
+    session-cleanup-enabled: false
+    # 10 é o fator do BCrypt antes de esta configuração existir. Mantém a suíte rápida:
+    # os testes exercitam o comportamento do hash, não o custo do algoritmo.
+    bcrypt-strength: 10
   cors:
     allowed-origins: http://localhost:5173
   email:

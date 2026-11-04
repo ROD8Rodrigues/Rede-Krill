@@ -1,3 +1,19 @@
+/*
+ * CANCELA O BOOT se produção subir com configuração insegura.
+ *
+ * Roda só no perfil prod, no @PostConstruct — antes de qualquer request. A ideia é que
+ * um deploy mal configurado morra em segundos, com mensagem clara, em vez de ficar
+ * servindo com token assinado por segredo fraco ou cookie que viaja sem HTTPS.
+ *
+ * O que é checado: senha do banco (presente e fora da lista de valores padrão), JWT
+ * secret (presente, Base64 válido e com pelo menos 32 bytes decodificados), cookieSecure
+ * true, exposeTokenInResponse false e, se o seed estiver ligado, uma senha de admin com
+ * 12 caracteres ou mais que não seja um valor conhecido.
+ *
+ * Nenhum valor analisado vai para a mensagem de erro: a frase diz qual propriedade está
+ * errada, nunca o que estava nela. As três checagens de segredo podem até revelar que o
+ * formato é inválido, jamais o conteúdo.
+ */
 package com.redekrill.scheduling.infrastructure.config;
 
 import com.redekrill.scheduling.infrastructure.config.properties.AuthProperties;

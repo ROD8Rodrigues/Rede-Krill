@@ -164,6 +164,7 @@ class SchedulingApiIntegrationTest {
                 .andExpect(jsonPath("$.totalAppointments").value(1))
                 .andExpect(jsonPath("$.totalPallets").value(30))
                 .andExpect(jsonPath("$.totalEffectivePallets").value(60))
+                .andExpect(jsonPath("$.totalCanceled").value(0))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
                 .andExpect(jsonPath("$.totalPages").value(1));
@@ -239,7 +240,36 @@ class SchedulingApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAppointments").value(1))
                 .andExpect(jsonPath("$.totalPallets").value(50))
+                .andExpect(jsonPath("$.totalCanceled").value(1))
                 .andExpect(jsonPath("$.appointments[0].status").value("CANCELED"));
+
+        mockMvc.perform(get("/api/reports/appointments")
+                        .param("startDate", "2026-04-01")
+                        .param("endDate", "2026-04-30")
+                        .param("status", "ACTIVE")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matchingAppointments").value(0))
+                .andExpect(jsonPath("$.totalAppointments").value(1))
+                .andExpect(jsonPath("$.appointments").isEmpty());
+
+        mockMvc.perform(get("/api/reports/appointments")
+                        .param("startDate", "2026-04-01")
+                        .param("endDate", "2026-04-30")
+                        .param("status", "CANCELED")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matchingAppointments").value(1))
+                .andExpect(jsonPath("$.appointments[0].status").value("CANCELED"));
+
+        mockMvc.perform(get("/api/reports/appointments")
+                        .param("startDate", "2026-04-01")
+                        .param("endDate", "2026-04-30")
+                        .param("status", "INEXISTENTE")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message")
+                        .value("Valor inválido para o parâmetro status."));
 
         mockMvc.perform(get("/api/audit-logs").param("size", "100")
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))

@@ -5,6 +5,7 @@
 **Data da análise:** 2026-11-02
 **Versão analisada:** `main` + alterações do checkpoint de segurança (Spring Boot 4.1.2, migrações até `V6__email_outbox.sql`)
 **Método:** análise estática do código-fonte, revisão de configuração por perfil, inspeção de schema/migrações e leitura dos artefatos de teste e cobertura já produzidos no ambiente local.
+**Atualização 2026-11-03:** re-execuções e fechamentos de achados registrados na seção §11 (onde houver conflito com as seções 1, 5 e 6, vale §11 — elas registram o estado de 02/11).
 
 > **O que este documento NÃO é.** Não é teste de penetração, não é varredura dinâmica contra uma instância em execução e não é certificação. Nenhuma requisição HTTP real foi disparada contra a aplicação durante esta análise. As afirmações abaixo têm origem em código e em artefatos de build verificáveis; onde não há evidência, isso está declarado como lacuna (seções 6, 8 e 9).
 
@@ -273,9 +274,39 @@ Itens 6 a 12 não foram executados: exigem instância em runtime.
 
 ## 10. Conclusão
 
-O núcleo de autenticação deixou o modelo anterior (JWT stateless puro, token em `localStorage`, sem CSRF, sem revogação) e passou a um modelo com **sessão revogável, refresh rotativo de uso único, CSRF obrigatório, lockout progressivo, troca forçada de senha inicial e fail-fast de configuração em produção** — todos com evidência em código e cobertos pela suíte de 125 testes em execução local. Os sete problemas críticos da auditoria anterior estão tratados ou em tratamento.
+O núcleo de autenticação deixou o modelo anterior (JWT stateless puro, token em `localStorage`, sem CSRF, sem revogação) e passou a um modelo com **sessão revogável, refresh rotativo de uso único, CSRF obrigatório, lockout progressivo, troca forçada de senha inicial e fail-fast de configuração em produção** — todos com evidência em código e cobertos pela suíte em execução local (125 testes na data da análise; **214** na re-execução de 03/11, §11). Os sete problemas críticos da auditoria anterior estão tratados ou em tratamento.
 
 As três lacunas que ainda impedem uma afirmação de segurança completa são de **evidência**, não de arquitetura: análise de dependências do backend nunca executada (`SEC-03`), ausência de validação em runtime (`SEC-06`) e cobertura insuficiente exatamente nas classes de controle de acesso (`SEC-02`). Nenhuma delas exige mudança estrutural; todas são fecháveis antes da entrega.
+
+---
+
+## 11. Atualizações de evidência — 2026-11-03
+
+Esta seção acrescenta execuções feitas depois da análise original (02/11) e, onde indicado, atualiza o status dos achados da seção 6. O método não muda: só entra aqui o que tem fonte citável.
+
+### 11.1 Re-execuções registradas (noite de 03/11, máquina local, sem Docker)
+
+| Verificação | Resultado | Fonte |
+|---|---|---|
+| Suíte backend re-executada duas vezes | **214 testes, 0 falhas, 0 erros** (`mvnw test` às 23:19; `mvnw clean verify` às 23:20, BUILD SUCCESS) | `backend/target/surefire-reports/` |
+| Cobertura JaCoCo (regenerada às 23:20) | Gate dos 4 pacotes críticos **98,85% linhas (516/522)**; projeto **87,61% linhas · 71,43% branches · 86,84% instruções** | `backend/target/site/jacoco/jacoco.csv` |
+| OWASP Dependency-Check (re-execução) | **BUILD SUCCESS — 0 vulneráveis em 86 componentes** (plugin 12.2.2, `failBuildOnCVSS=7`, cache local do NVD com 911 registros, sem `NVD_API_KEY`) | `backend/target/dependency-check/dependency-check-report.json` |
+| `npm audit` (frontend) | **0 vulnerabilidades no total** (produção e desenvolvimento) após `overrides` de dev-deps (`glob ^14.0.2`, `minimatch ^11.0.1`) | `frontend/package.json:49-52` |
+| Toolchain do frontend | lint, format:check, `vue-tsc`, **20 testes** (Vitest), build Vite 8.3.5 e **E2E 3/3** — a suíte continua mockando `/api/auth/*` (ressalva do §8.5, item 5, permanece) | execução local 03/11 23:17–23:18 |
+
+### 11.2 Status dos achados afetados
+
+| ID | Status na matriz (§6) | Status atual | Evidência |
+|---|---|---|---|
+| `SEC-03` | ABERTO | **TRATADO** | Varredura executada e verde (§11.1); o pin do webjar `swagger-ui 5.34.1` (DOMPurify 3.4.17) foi verificado com controle negativo (§3.2 de `docs/VALIDACAO_FINAL.md`). Ressalva: frescura do NVD depende do cache local; no CI a varredura é agendada com a chave. |
+| `SEC-04` | ABERTO | **TRATADO** | O reuso do refresh revoga **todas as sessões do usuário** e audita `REFRESH_TOKEN_REUSE`: `AuthSessionService.java:121-125` e `:137-141` (cascata), `:145-150` (auditoria), `AuditAction.java:37`. Cascata medida em runtime — `docs/VALIDACAO_FINAL.md` §6. Adendo no `ADR-001`. |
+| `SEC-05` | ABERTO | **TRATADO** | Política de senha unificada: `CreateUserRequest.java:34` (`@Size(min=12, max=72)`), `CreateUserUseCase.java:64` (`passwordPolicy.validate(...)`), `DataInitializer.java:87-91` (seed na mesma política) — exercitada também no smoke runtime (§6 de `docs/VALIDACAO_FINAL.md`). |
+| `SEC-02` | ABERTO | **Maior parte tratada** (classes cobertas; o gate segue por agregado) | No JaCoCo de 23:20: `LoginAttemptService` 66/71 linhas (92,9%), `ChangePasswordUseCase` 31/31 (100%), `AuthSessionService` 80/81 (98,8%), `AuditService` 8/8, `JwtTokenService` 45/45 (100%). A sugestão de gate por classe (P1, item 6) permanece como evolução. |
+| `SEC-14` | ABERTO | **TRATADO** | `EmailOutboxProcessor` 66/67 linhas (98,5%) no JaCoCo de 23:20; entrega `PENDING → SENT` com SMTP real medida no smoke (§6 de `docs/VALIDACAO_FINAL.md`). |
+| `SEC-06` | ABERTO | **PARCIAL — fechado na instância local** | 68/68 verificações de runtime executadas em 03/11 contra o jar empacotado (§3.3/§6 de `docs/VALIDACAO_FINAL.md`): CSRF mascarado, rotação, reuso com cascata auditada, lockout `429`, troca obrigatória, RBAC, outbox com SMTP real. O caminho Docker/CI **continua não validado** nesta máquina. |
+| `SEC-01`, `SEC-07`, `SEC-08`, `SEC-09`, `SEC-10`–`SEC-13` | idem | **sem mudança de status** | — |
+
+> As seções 1, 5 e 6 registram a análise de 02/11; para dependências, prontidão de entrega, política de senha e achados acima, os valores desta seção prevalecem.
 
 ---
 

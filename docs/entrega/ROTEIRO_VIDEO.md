@@ -55,7 +55,7 @@ Tempo acumulado aproximado. "Fala" é o texto a narrar; "Tela" é o que deve est
 
 ### Cena 2 — Arquitetura (0:40 – 2:00)
 - **Tela:** árvore `backend/src/main/java/com/redekrill/scheduling` com as quatro camadas; depois `ArchitectureTest`; depois `docs/arquitetura/README.md`.
-- **Fala:** "Clean Architecture em quatro camadas. O domínio não conhece Spring nem JPA, e isso não é convenção verbal: é uma regra executada por ArquUnit a cada build. As decisões estruturais estão em seis ADRs, um por escolha que tem custo — sessão em cookie, CSRF, outbox de e-mail, limites fixos de capacidade, Flyway como dono do schema e concorrência otimista."
+- **Fala:** "Clean Architecture em quatro camadas. O domínio não conhece Spring nem JPA, e isso não é convenção verbal: é uma regra executada por ArchUnit a cada build. As decisões estruturais estão em dez ADRs — entre eles: sessão em cookie, CSRF, outbox de e-mail, limites fixos de capacidade, Flyway como dono do schema, concorrência otimista, gate de arquitetura, provisionamento do administrador, agregações do relatório e o funil de validação."
 - **Corte:** não ler o ADR; mostrar o sumário e seguir.
 
 ### Cena 3 — Login seguro e troca obrigatória de senha (2:00 – 3:40)
@@ -91,13 +91,13 @@ Tempo acumulado aproximado. "Fala" é o texto a narrar; "Tela" é o que deve est
 
 ### Cena 10 — Testes e cobertura (10:25 – 11:25)
 - **Tela:** `mvn verify` terminando; depois `backend/target/site/jacoco/index.html` nos quatro pacotes do gate.
-- **Fala:** "Cento e vinte e cinco testes em vinte e cinco classes, com zero falhas — incluindo regras de negócio puras, use cases com mock e a API contra PostgreSQL embarcado. O gate de cobertura exige oitenta por cento em linhas nos quatro pacotes críticos e está em noventa e um vírgula vinte e cinco por cento. Onde a cobertura é fraca também está dito: a classe de bloqueio de login e o caso de uso de troca de senha ficam abaixo disso em instruções, e o processador de outbox não tem teste próprio — são os achados `SEC-02` e `SEC-14`."
+- **Fala:** "Duzentos e quatorze testes, com zero falhas — incluindo regras de negócio puras, use cases com mock e a API contra PostgreSQL embarcado. O gate de cobertura exige oitenta por cento em linhas nos quatro pacotes críticos e está em noventa e oito vírgula oitenta e cinco por cento — quinhentos e dezesseis de quinhentas e vinte e duas linhas — com o projeto em oitenta e sete vírgula sessenta e um. As classes que estavam fracas na análise de 02/11 foram cobertas na re-execução de 03/11: limites de tentativas em noventa e dois vírgula nove por cento das linhas, troca de senha em cem por cento, processador da outbox em noventa e oito vírgula cinco — os achados `SEC-02` e `SEC-14` da matriz foram tratados."
 - **Comando na tela:** `mvn -f backend/pom.xml verify`
 - ⚠️ Só grave esta cena ao vivo se o comando rodar na máquina de gravação. Os números acima foram lidos dos artefatos já presentes em `backend/target` e podem ser mostrados como tela estática caso o build não rode ao vivo.
 
 ### Cena 11 — Fechamento com lacunas (11:25 – 12:10)
 - **Tela:** tabela de achados de `SECURITY_REPORT.md` (SEC-01, SEC-03, SEC-06) e a lista de entregáveis em `docs/`.
-- **Fala:** "Fechando com o que ainda não posso afirmar. Não executei análise de composição das dependências do backend, então não há declaração de ausência de CVE. Não validei o caminho Docker e CI nesta máquina, porque o Docker não está disponível. E o bloqueio de tentativas é por instância. Os três estão listados como prioridades P0 e P1, com o plano de re-teste no relatório de segurança e as rotinas operacionais no runbook."
+- **Fala:** "Fechando com o que ainda não posso afirmar. A análise de composição das dependências do backend foi executada em 03/11 sem chave do NVD, com o cache local: zero componentes vulneráveis em oitenta e seis — a ressalva que resta é a frescura da base, e no CI a varredura roda agendada com a chave. O caminho Docker e CI segue não validado nesta máquina, porque o Docker não está disponível. E o bloqueio de tentativas é por instância, registrado como achado `SEC-01`. Esses itens continuam nas prioridades P0 e P1 do relatório de segurança, com o plano de re-teste e as rotinas no runbook."
 - **Último frame:** `README.md` · `SECURITY_REPORT.md` · `docs/arquitetura/` · `docs/operacao/RUNBOOK.md` · `docs/entrega/`.
 
 ---
@@ -114,7 +114,7 @@ Um vídeo de demonstração que não mostra as lacunas perde valor diante do rel
 
 **Abertura (Cena 1).** "Olá. Estou demonstrando o Rede Krill Scheduling, sistema de agendamento de coletas. O que está rodando aqui é o estado atual do código: backend em Spring Boot quatro vírgula um vírgula dois, frontend em Vue três e PostgreSQL dezesseis. Vou seguir a ordem: arquitetura, segurança de sessão, fluxo de agendamento, notificação, observabilidade, testes e — por último — as lacunas que ainda existem."
 
-**Encerramento (Cena 11).** "Isso encerra a parte funcional. A entrega escrita traz o relatório de segurança com catorze achados numerados, seis ADRs com evidência em arquivo e linha, o runbook com o SQL de operação e este roteiro. O resumo: o sistema está pronto para operação interna controlada, em instância única e com HTTPS obrigatório, e as três prioridades antes de produção são análise de dependências do backend, validação do caminho Docker e CI, e reforço de cobertura nas classes de controle de acesso."
+**Encerramento (Cena 11).** "Isso encerra a parte funcional. A entrega escrita traz o relatório de segurança com os achados numerados e atualizados em 03/11 (seção 11), dez ADRs com evidência em arquivo e linha, o runbook com o SQL de operação e este roteiro. O resumo: o sistema está pronto para operação interna controlada, em instância única e com HTTPS obrigatório; a varredura de dependências executada não encontrou componentes vulneráveis, e as prioridades antes de produção são a validação do caminho Docker e de CI e um armazenamento compartilhado para o bloqueio de tentativas quando houver mais de uma instância."
 
 ---
 

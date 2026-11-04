@@ -1,3 +1,20 @@
+/*
+ * Edição de usuário, que é três operações diferentes dependendo do que veio.
+ *
+ * Edição de perfil é o caminho comum: nome, e-mail, papel e atividade. Se o campo de
+ * senha vier preenchido, o caso de uso assume reset feito por ADMIN — valida a
+ * política, troca o hash e acende a flag de troca obrigatória, porque a nova senha foi
+ * escolhida por outra pessoa de novo. Vindo vazio, o hash existente é copiado tal e
+ * qual; não existe "senha em branco significa senha nova".
+ *
+ * Há um guarda de autolesão: quem edita a própria conta não pode se desativar nem
+ * tirar de si o papel ADMIN. As duas portas impedem o único roteiro em que o sistema
+ * fica sem ninguém capaz de entrar para consertá-lo.
+ *
+ * Por fim, a sessão. Desativar ou trocar a senha derruba todas as sessões do usuário,
+ * do lado de fora da transação de escrita — o logout forçado é consequência, não parte
+ * da gravação do perfil.
+ */
 package com.redekrill.scheduling.application.usecase.user;
 
 import com.redekrill.scheduling.application.dto.user.UpdateUserCommand;
@@ -12,15 +29,17 @@ import com.redekrill.scheduling.domain.exception.ResourceNotFoundException;
 import com.redekrill.scheduling.domain.model.AuditAction;
 import com.redekrill.scheduling.domain.model.Role;
 import com.redekrill.scheduling.domain.model.User;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
 
+/**
+ * Atualiza perfil e, quando enviada, redefine a senha de um usuário.
+ */
 public class UpdateUserUseCase {
-
-    private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -28,16 +47,19 @@ public class UpdateUserUseCase {
     private final TransactionRunner transactionRunner;
     private final AuthSessionService authSessionService;
     private final Clock clock;
+    private final PasswordPolicy passwordPolicy;
 
     public UpdateUserUseCase(UserRepository userRepository, PasswordHasher passwordHasher,
                              AuditService auditService, TransactionRunner transactionRunner,
-                             AuthSessionService authSessionService, Clock clock) {
+                             AuthSessionService authSessionService, Clock clock,
+                             PasswordPolicy passwordPolicy) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.auditService = auditService;
         this.transactionRunner = transactionRunner;
         this.authSessionService = authSessionService;
         this.clock = clock;
+        this.passwordPolicy = passwordPolicy;
     }
 
     public UserResult execute(UpdateUserCommand command) {
@@ -59,23 +81,24 @@ public class UpdateUserUseCase {
         }
 
         boolean passwordChanged = command.password() != null && !command.password().isBlank();
-        User updated;
         if (passwordChanged) {
-            if (command.password().length() < MIN_PASSWORD_LENGTH) {
-                throw new DomainException("Senha deve ter pelo menos " + MIN_PASSWORD_LENGTH + " caracteres.");
-            }
-            updated = existing.resetPassword(
-                    passwordHasher.hash(command.password()), true, Instant.now(clock));
-        } else {
-            updated = existing.update(
-                    command.name(),
-                    email,
-                    command.role(),
-                    command.active(),
-                    existing.passwordHash(),
-                    Instant.now(clock)
-            );
+            passwordPolicy.validate(command.password(), "A senha");
         }
+        Instant now = Instant.now(clock);
+        String passwordHash = passwordChanged
+                ? passwordHasher.hash(command.password())
+                : existing.passwordHash();
+        User profile = existing.update(
+                command.name(),
+                email,
+                command.role(),
+                command.active(),
+                passwordHash,
+                now
+        );
+        User updated = passwordChanged
+                ? profile.resetPassword(passwordHash, true, now)
+                : profile;
 
         User saved = transactionRunner.execute(() -> {
             User result = userRepository.save(updated);

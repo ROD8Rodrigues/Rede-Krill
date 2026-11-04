@@ -1,3 +1,15 @@
+/*
+ * Exclusão de um tipo avulso, com duas portas antes da faca.
+ *
+ * A primeira protege a regra de negócio: Paletizado e Não Paletizado são obrigatórios
+ * e não saem do catálogo, porque o cálculo de capacidade e o seed dependem deles. A
+ * segunda protege a integridade: se existe agendamento apontando para o tipo, ele
+ * continua lá mesmo depois de apagado, e aí a leitura quebra.
+ *
+ * O delete é físico, e por isso a auditoria é gravada depois dele, dentro da mesma
+ * transação — o nome do tipo removido é lido da instância carregada antes de sumir. A
+ * linha de log não tem FOREIGN KEY com o cadastro, então sobrevive ao registro.
+ */
 package com.redekrill.scheduling.application.usecase.reference;
 
 import com.redekrill.scheduling.application.port.TransactionRunner;
@@ -9,6 +21,9 @@ import com.redekrill.scheduling.domain.model.PalletizationType;
 import com.redekrill.scheduling.domain.repository.AppointmentRepository;
 import com.redekrill.scheduling.domain.repository.PalletizationTypeRepository;
 
+/**
+ * Remove um tipo de paletização não obrigatório e sem uso.
+ */
 public class DeletePalletizationTypeUseCase {
 
     private final PalletizationTypeRepository repository;

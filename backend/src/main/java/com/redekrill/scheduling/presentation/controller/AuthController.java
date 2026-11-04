@@ -1,3 +1,29 @@
+/*
+ * Login, refresh, logout, troca de senha e a entrega das cookies de sessão.
+ *
+ * O desenho que precisa ficar claro: a autenticação padrão viaja em cookie httpOnly, não
+ * no corpo. O campo token de LoginResponse só vem preenchido quando
+ * exposeTokenInResponse está ligado (modo sem cookie, para app ou Postman); no fluxo
+ * normal ele é nulo e a sessão está toda nas duas Set-Cookie da resposta.
+ *
+ * As duas cookies não têm o mesmo caminho. A de acesso vale para "/" porque qualquer
+ * rota da API a usa. A de refresh vale só para "/api/auth" — ela só serve para renovar
+ * ou sair, e limitar o caminho faz o navegador deixá-la em casa em qualquer outra
+ * requisição, inclusive as de leitura de relatório.
+ *
+ * refresh não lê corpo: pega a cookie, chama a rotação e devolve o mesmo formato de
+ * login. Se a rotação detectar reuso, a família inteira é revogada antes da exceção
+ * subir, e o logout tolera sessão já revogada de propósito — desligar não pode falhar
+ * porque alguém saiu duas vezes.
+ *
+ * change-password encerra as sessões e limpa as cookies na mesma resposta: sem isso,
+ * quem troca a senha continuaria com um par de credenciais vivas no navegador.
+ *
+ * GET /csrf entrega token, nome do cabeçalho e nome do parâmetro. CookieCsrfTokenRepository
+ * mascarado só funciona se o cliente ecoar o valor de volta em cada escrita, e devolver o
+ * token por corpo deixa o frontend de fora da convenção do nome da cookie — que é
+ * legível por script justamente para isso, ao contrário das cookies de sessão.
+ */
 package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.auth.AuthCookieSettings;
@@ -15,6 +41,7 @@ import com.redekrill.scheduling.presentation.request.ChangePasswordRequest;
 import com.redekrill.scheduling.presentation.request.LoginRequest;
 import com.redekrill.scheduling.presentation.response.LoginResponse;
 import com.redekrill.scheduling.presentation.response.UserResponse;
+import com.redekrill.scheduling.presentation.support.ClientIpResolver;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +65,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.util.Map;
 
+/**
+ * Contrato HTTP de autenticação: emissão, renovação e revogação de sessão. Não valida
+ * senha nem gera token — isso é LoginUseCase e AuthSessionService.
+ */
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Autenticação")
@@ -203,12 +234,6 @@ public class AuthController {
     }
 
     private String clientIp(HttpServletRequest request) {
-        if (authSettings.trustForwardedHeaders()) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                return forwarded.split(",")[0].trim();
-            }
-        }
-        return request.getRemoteAddr();
+        return ClientIpResolver.resolve(request, authSettings.trustForwardedHeaders());
     }
 }

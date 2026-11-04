@@ -1,3 +1,22 @@
+/*
+ * Controle de tentativas de login, com bloqueio temporário e progressivo.
+ *
+ * Duas contagens independentes andam juntas: por conta e por endereço de origem. A
+ * primeira impede adivinhação contra um e-mail conhecido; a segunda impede o
+ * espalhamento — quem testa uma senha em dez mil contas nunca estoura o limite de
+ * nenhuma delas, mas estoura o do próprio IP.
+ *
+ * O estado vive em memória, e a Javadoc da classe já diz por que isso limita o
+ * componente a uma instância. O teto de chaves rastreadas existe porque a tabela é
+ * aberta por quem ataca: sem limite, uma avalanche de e-mails aleatórios faria o mapa
+ * crescer até faltar memória. O preço de limitar é honesto — liberar espaço pode
+ * descartar um bloqueio em andamento de outra conta.
+ *
+ * O tempo de bloqueio cresce em níveis, até quatro vezes o configurado, em vez de
+ * virar permanente. Lockout sem fim é porta para negação de serviço contra o usuário
+ * legítimo: quem erra a senha três vezes depois de esquecê-la ficaria travado para
+ * sempre.
+ */
 package com.redekrill.scheduling.application.service;
 
 import com.redekrill.scheduling.domain.exception.TooManyRequestsException;
@@ -7,6 +26,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +39,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LoginAttemptService {
 
     private static final String UNKNOWN_IP = "desconhecido";
+
+    /**
+     * Teto de chaves rastreadas por mapa. Sem ele, uma avalanche de tentativas com
+     * e-mails aleatórios faria o estado crescer sem limite; ao atingir o teto, entradas
+     * vencidas são removidas e, se ainda assim não houver espaço, a mais antiga cede.
+     */
+    private static final int MAX_TRACKED_KEYS = 10_000;
 
     private final Clock clock;
     private final int maxAttemptsPerAccount;
@@ -73,6 +100,9 @@ public class LoginAttemptService {
 
     private void registerFailure(Map<String, AttemptState> attempts, String key,
                                  int threshold, Instant now) {
+        if (!attempts.containsKey(key)) {
+            makeRoom(attempts, now);
+        }
         AttemptState state = attempts.computeIfAbsent(key, ignored -> new AttemptState());
         synchronized (state) {
             prune(state, now);
@@ -96,21 +126,36 @@ public class LoginAttemptService {
     }
 
     private void pruneIfNecessary(Instant now) {
-        if (accountAttempts.size() + ipAttempts.size() < 10_000) {
+        if (accountAttempts.size() + ipAttempts.size() < MAX_TRACKED_KEYS) {
             return;
         }
-        accountAttempts.entrySet().removeIf(entry -> {
+        makeRoom(accountAttempts, now);
+        makeRoom(ipAttempts, now);
+    }
+
+    /**
+     * Libera espaço antes de inserir uma chave nova: descarta o que já venceu e, se o mapa
+     * continua cheio, remove uma entrada qualquer. A escolha arbitrária pode encerrar um
+     * bloqueio temporário de outra conta — troca aceita para manter a memória limitada.
+     */
+    private void makeRoom(Map<String, AttemptState> attempts, Instant now) {
+        if (attempts.size() < MAX_TRACKED_KEYS) {
+            return;
+        }
+        attempts.entrySet().removeIf(entry -> {
             synchronized (entry.getValue()) {
                 prune(entry.getValue(), now);
                 return entry.getValue().failures.isEmpty() && entry.getValue().lockedUntil == null;
             }
         });
-        ipAttempts.entrySet().removeIf(entry -> {
-            synchronized (entry.getValue()) {
-                prune(entry.getValue(), now);
-                return entry.getValue().failures.isEmpty() && entry.getValue().lockedUntil == null;
-            }
-        });
+        if (attempts.size() < MAX_TRACKED_KEYS) {
+            return;
+        }
+        Iterator<Map.Entry<String, AttemptState>> entries = attempts.entrySet().iterator();
+        if (entries.hasNext()) {
+            entries.next();
+            entries.remove();
+        }
     }
 
     private String accountKey(String email) {

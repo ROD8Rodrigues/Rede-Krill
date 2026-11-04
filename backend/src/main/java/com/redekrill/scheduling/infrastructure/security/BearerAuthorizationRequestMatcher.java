@@ -1,3 +1,11 @@
+/*
+ * Reconhece a requisição que chega com Authorization: Bearer.
+ *
+ * A comparação ignora caixa e olha apenas os sete primeiros caracteres porque o prefixo
+ * pode vir em caixa alta e o token em outro formato — não é preciosismo, é o que HTTP
+ * permite. Quem consome esta classe é a config de CSRF, usando o resultado para decidir
+ * quando a checagem do token CSRF não se aplica.
+ */
 package com.redekrill.scheduling.infrastructure.security;
 
 import jakarta.servlet.http.HttpServletRequest;

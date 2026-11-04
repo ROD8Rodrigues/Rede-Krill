@@ -1,3 +1,23 @@
+/*
+ * Todo erro que sai da aplicação passa por aqui e vira o mesmo ApiError.
+ *
+ * A ordem dos handlers importa: DomainException é tratado em quatro linhas, mas cada
+ * filho seu tem handler próprio, e o Spring escolhe o mais específico. É isso que faz
+ * ResourceNotFound virar 404 e Conflict virar 409 em vez de ambos caírem no 400 genérico
+ * da classe-mãe — o handler de DomainException serve de rede para um novo tipo de erro de
+ * domínio que ainda não ganhou status próprio.
+ *
+ * O que vira o quê: validação de corpo e parâmetro é 400, às vezes com o mapa de erros por
+ * campo (LinkedHashMap, para a ordem dos campos na resposta ser a ordem em que as violações
+ * chegaram, e a primeira mensagem ganha quando um campo tem duas regras); autenticação falha
+ * 401; acesso negado 403; não encontrado 404; conflito de unicidade, vínculo ou lock otimista
+ * 409; muitos 429 com Retry-After em segundos; e o resto é 500 com frase neutra.
+ *
+ * O que não vira nada: valor de campo. Nos handlers de validação o log debug lista só os
+ * nomes dos parâmetros rejeitados, porque esta advice atende também as rotas de login,
+ * onde o valor recusado seria justamente a senha. A exceção inesperada é logada com
+ * stack trace no servidor e mascarada na resposta.
+ */
 package com.redekrill.scheduling.presentation.exception;
 
 import com.redekrill.scheduling.domain.exception.AuthenticationFailedException;
@@ -17,6 +37,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,6 +53,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Tradução de exceções em respostas HTTP padronizadas. Não decide regra de negócio nem
+ * gera mensagem de domínio: apenas escolhe o status que o erro já carregado merece.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -70,6 +95,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ApiError> handleHandlerMethodValidation(
             HandlerMethodValidationException exception, HttpServletRequest request) {
+        if (log.isDebugEnabled()) {
+            // Só os nomes dos parâmetros rejeitados: os valores podem carregar
+            // credenciais ou PII, e este handler atende também as rotas de autenticação.
+            String rejected = exception.getParameterValidationResults().stream()
+                    .map(result -> result.getMethodParameter().getParameterName())
+                    .collect(Collectors.joining(", "));
+            log.debug("Validação de parâmetros rejeitada em {}: {}.", request.getRequestURI(), rejected);
+        }
         return build(HttpStatus.BAD_REQUEST, "Parâmetros inválidos.", request, null);
     }
 
@@ -109,6 +142,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleMediaTypeNotSupported(
             HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
         return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de conteúdo não suportado.", request, null);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ApiError> handleMediaTypeNotAcceptable(
+            HttpMediaTypeNotAcceptableException exception, HttpServletRequest request) {
+        return build(HttpStatus.NOT_ACCEPTABLE, "Tipo de resposta não aceitável.", request, null);
     }
 
     @ExceptionHandler(AuthenticationFailedException.class)

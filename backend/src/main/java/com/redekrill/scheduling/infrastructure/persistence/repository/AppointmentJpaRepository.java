@@ -1,5 +1,28 @@
+/*
+ * As consultas de agendamento, incluindo as que a camada de domínio não pode saber
+ * que existem.
+ *
+ * Três grupos, cada um com uma razão própria de existir:
+ * - as leituras com @EntityGraph (findDetailedById, search, searchReport,
+ *   searchReportByStatus), porque montar o modelo de domínio toca cinco relações e, sem o
+ *   graph, cada uma viraria um SELECT por linha;
+ * - as somas de capacidade, que filtram status = ACTIVE dentro da query e por isso o
+ *   cancelamento libera espaço sem apagar nada; as variantes Excluding servem à edição,
+ *   onde o registro em edição já está na tabela e não pode contar duas vezes;
+ * - os exists, que respondem por chave estrangeira antes de um delete ou de um cadastro.
+ *
+ * Duas notas de Postgres que já custaram tempo:
+ * - search abre pela data mais alta e searchReport pela mais baixa, porque um alimenta a
+ *   tela e o outro é leitura cronológica de relatório;
+ * - searchReport e searchReportByStatus são consultas separadas de propósito. Passar enum
+ *   nulo em "(:status is null or ...)" faz o driver inferir tipo e quebrar em runtime.
+ *
+ * As somas de período devolvem primitive porque usam coalesce dentro do JPQL; as de
+ * capacidade devolvem Long embrulhado, e quem converte null em zero é o adaptador.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.repository;
 
+import com.redekrill.scheduling.domain.model.AppointmentStatus;
 import com.redekrill.scheduling.infrastructure.persistence.entity.AppointmentJpaEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,9 +32,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repositório Spring Data da entidade de agendamento.
+ */
 public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEntity, Long> {
 
     @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
@@ -27,15 +52,6 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
     Page<AppointmentJpaEntity> search(@Param("startDate") LocalDate startDate,
                                       @Param("endDate") LocalDate endDate,
                                       Pageable pageable);
-
-    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
-    @Query("""
-            select a from AppointmentJpaEntity a
-            where a.appointmentDate between :startDate and :endDate
-            order by a.appointmentDate asc, a.timeSlot.startTime asc, a.id asc
-            """)
-    List<AppointmentJpaEntity> findByPeriod(@Param("startDate") LocalDate startDate,
-                                            @Param("endDate") LocalDate endDate);
 
     @Query("""
             select sum(a.palletQuantity) from AppointmentJpaEntity a
@@ -83,6 +99,20 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
                                             @Param("endDate") LocalDate endDate,
                                             Pageable pageable);
 
+    // Duas consultas explícitas: passar um enum nulo em "(:status is null or ...)"
+    // obriga o Postgres a inferir o tipo do parâmetro e quebra em runtime.
+    @EntityGraph(attributePaths = {"timeSlot", "truckType", "palletizationType", "createdBy", "canceledBy"})
+    @Query("""
+            select a from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+              and a.status = :status
+            order by a.appointmentDate asc, a.timeSlot.startTime asc, a.id asc
+            """)
+    Page<AppointmentJpaEntity> searchReportByStatus(@Param("startDate") LocalDate startDate,
+                                                    @Param("endDate") LocalDate endDate,
+                                                    @Param("status") AppointmentStatus status,
+                                                    Pageable pageable);
+
     @Query("""
             select count(a) from AppointmentJpaEntity a
             where a.appointmentDate between :startDate and :endDate
@@ -103,6 +133,14 @@ public interface AppointmentJpaRepository extends JpaRepository<AppointmentJpaEn
             """)
     long sumEffectivePalletsByPeriod(@Param("startDate") LocalDate startDate,
                                      @Param("endDate") LocalDate endDate);
+
+    @Query("""
+            select count(a) from AppointmentJpaEntity a
+            where a.appointmentDate between :startDate and :endDate
+              and a.status = com.redekrill.scheduling.domain.model.AppointmentStatus.CANCELED
+            """)
+    long countCanceledByPeriod(@Param("startDate") LocalDate startDate,
+                               @Param("endDate") LocalDate endDate);
 
     boolean existsByOrderId(Long orderId);
 

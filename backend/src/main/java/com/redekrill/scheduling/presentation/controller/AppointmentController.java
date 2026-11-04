@@ -1,3 +1,22 @@
+/*
+ * A rota do agendamento — e o exemplo mais limpo do que um controller deve ser aqui.
+ *
+ * Cada método faz três coisas e para: recebe o corpo validado, monta o command juntando
+ * os campos com quem está chamando (authentication.getName(), o autor da auditoria), e
+ * devolve o resultado convertido. Não há soma de capacidade, não há checagem de data, não
+ * há "se o status for X". Tudo isso já aconteceu dentro do caso de uso, onde os testes
+ * unitários alcançam.
+ *
+ * Um detalhe de contrato: PUT recebe o estado inteiro de novo, não um patch parcial. É
+ * escolha que combina com o domínio — editar agendamento recalcula faixa, tipo e
+ * capacidade de uma vez, e campo omitido não tem como ser interpretado como "deixa como
+ * estava" sem adivinhar a intenção de quem chamou.
+ *
+ * create devolve 201 com o agendamento, os avisos de capacidade, a situação do e-mail
+ * (emailQueued ou emailSent dizem se a confirmação entrou na fila ou saiu na hora) e a
+ * ocupação resultante. cancel devolve 204 porque não há corpo útil: o estado é "não
+ * está mais de pé", e o histórico continua na tabela.
+ */
 package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
@@ -39,6 +58,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
+/**
+ * Exposição HTTP dos casos de uso de agendamento. Não consulta repositório nem decide
+ * regra: converte request em command e response em resultado.
+ */
 @RestController
 @RequestMapping("/api/appointments")
 @Tag(name = "Agendamentos")

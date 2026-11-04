@@ -1,3 +1,19 @@
+/*
+ * O padrão outbox em uma linha: a intenção de avisar, gravada junto do que ela
+ * descreve.
+ *
+ * appointment_id é número, não relação — a fila acompanha o agendamento sem depender de
+ * carregá-lo. O processador que varre a tabela precisa de status, next_attempt_at e
+ * attempts, e nada mais.
+ *
+ * As quatro colunas de reenvio contam a história sozinhas: attempts soma as
+ * tentativas, next_attempt_at é o portão do backoff, last_error guarda o motivo da última
+ * falha (aparado em mil caracteres, porque exceção de SMTP pode ser enorme) e sent_at marca
+ * a hora do sucesso.
+ *
+ * warnings é TEXT e nunca é nulo: a lista de avisos de capacidade vai unida por quebra de
+ * linha, e uma mensagem sem aviso é texto vazio, não ausência.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.entity;
 
 import com.redekrill.scheduling.domain.model.EmailOutboxStatus;
@@ -20,6 +36,9 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Mapeamento JPA da tabela email_outbox.
+ */
 public class EmailOutboxJpaEntity {
 
     @Id

@@ -1,3 +1,15 @@
+/*
+ * O lado auditável do logout.
+ *
+ * Esta classe só grava a linha de LOGOUT — e é deliberadamente pouco, porque a
+ * revogação efetiva é de responsabilidade de AuthSessionService. O controller pega o
+ * cookie de refresh e o atributo de sessão da requisição, revoga pelos dois caminhos e
+ * depois chama este caso de uso. O motivo da separação é o erro esperado: uma sessão
+ * pode já ter sido derrubada por rotação, e a auditoria não deve falhar junto.
+ *
+ * Por isso o "JWT é stateless" não é o fim da história aqui: com a sessão revogada no
+ * servidor, o access token deixa de passar no filtro mesmo nas mãos de quem o roubou.
+ */
 package com.redekrill.scheduling.application.usecase.auth;
 
 import com.redekrill.scheduling.application.service.AuditService;

@@ -295,6 +295,7 @@ As alterações no banco são controladas pelo Flyway. O Hibernate utiliza `ddl-
 | V4 | Configurações administrativas e regras de integridade. |
 | V5 | Sessões de autenticação e integridade adicional. |
 | V6 | Estrutura da outbox para envio de e-mails. |
+| V7 | Estado de cancelamento na outbox de e-mails. |
 
 ---
 
@@ -355,7 +356,7 @@ Existem duas maneiras de executar o sistema: utilizando Docker Compose ou inicia
 Antes de começar, tenha instalado:
 
 - JDK 21.
-- Node.js 18 ou superior.
+- Node.js `^20.19.0` ou `>= 22.12.0` (requisito do Vite 8; ambiente de validação usou Node 26).
 - npm.
 - PostgreSQL 16 ou Docker Compose.
 - Um servidor SMTP para testar as notificações por e-mail.
@@ -581,18 +582,19 @@ cd backend
 .\mvnw.cmd -B clean verify
 ```
 
-Resultado registrado em 02/11/2026:
+Resultado registrado em 03/11/2026 (re-execução à noite: `mvnw test` às 23:19 e `mvnw clean verify` às 23:20 — BUILD SUCCESS):
 
 | Métrica | Resultado |
 |---|---:|
-| Testes aprovados | 125 |
+| Testes aprovados | 214 |
 | Falhas | 0 |
 | Erros | 0 |
 | Testes ignorados | 0 |
-| Cobertura dos pacotes críticos | 87,77% |
-| Cobertura global de linhas | 77,6% |
+| Cobertura do gate dos pacotes críticos (linhas) | 98,85% (516/522) |
+| Cobertura global de linhas | 87,61% |
+| Cobertura global de branches | 71,43% |
 
-A exigência de cobertura dos pacotes críticos é de 80%, e o resultado registrado ficou acima desse valor.
+A exigência do gate é de 80% em linhas nos quatro pacotes críticos, e o resultado ficou acima desse valor. O registro de 02/11 (125 testes, 77,6% global) é histórico; a suíte cresceu em 03/11 com testes de JWT/sessão, rate limiting, troca de senha e do processador da outbox — as mesmas classes citadas pelos achados `SEC-02` e `SEC-14` do relatório de segurança, hoje cobertas (ver `SECURITY_REPORT.md` §11).
 
 O relatório do JaCoCo pode ser encontrado em:
 
@@ -634,11 +636,11 @@ npm audit --omit=dev
 npm audit
 ```
 
-Resultado registrado:
+Resultado registrado em 03/11/2026:
 
-- Dependências de produção do frontend: nenhuma vulnerabilidade identificada.
-- Dependências de desenvolvimento: 12 vulnerabilidades moderadas.
-- OWASP Dependency-Check do backend: ainda não executado.
+- OWASP Dependency-Check do backend: **BUILD SUCCESS — 0 vulneráveis em 86 componentes** (plugin 12.2.2, `failBuildOnCVSS=7`, cache local do NVD com 911 registros, sem `NVD_API_KEY`; relatório em `backend/target/dependency-check/`). Ressalva: a frescura da base vem do cache local; no CI a varredura roda agendada com a chave.
+- Frontend (`npm audit`): **0 vulnerabilidades** (produção e desenvolvimento) — as 12 moderadas anteriores, todas na cadeia de dev-dependencies (`glob`/`minimatch`), foram eliminadas com `overrides` (`glob ^14.0.2`, `minimatch ^11.0.1`) em `frontend/package.json`, sem subir majors de ferramentas.
+- Swagger UI fixado no webjar **5.34.1** (embarca DOMPurify 3.4.17, sem as CVEs do 3.4.16 que o springdoc trazia via 5.34.0) — `backend/pom.xml` documenta o acoplamento.
 
 Os resultados e as limitações estão documentados em [`SECURITY_REPORT.md`](SECURITY_REPORT.md).
 
@@ -693,11 +695,9 @@ O desenvolvimento também envolveu a identificação de pontos que ainda precisa
 
 Entre eles:
 
-- A análise completa de vulnerabilidades do backend ainda não possui relatório executado.
 - A execução com Docker não foi validada no ambiente de desenvolvimento.
 - O workflow de CI ainda precisa demonstrar uma execução bem-sucedida sobre o estado atual do código.
 - O rate limiting utiliza armazenamento em memória e precisa de uma solução compartilhada para ambientes com múltiplas instâncias.
-- A política de senha do cadastro administrativo e a política de troca de senha ainda possuem requisitos diferentes.
 - O processador da outbox precisa de melhorias para cenários com múltiplas instâncias.
 - Alguns fluxos ainda precisam de cobertura adicional de testes ponta a ponta.
 - A política de retenção de informações pessoais nos registros de auditoria e na outbox ainda precisa ser definida.

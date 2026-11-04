@@ -1,8 +1,27 @@
+/*
+ * A primeira conta ADMIN do banco, criada no boot quando o seed está ligado.
+ *
+ * Três caminhos terminam antes de qualquer escrita, e cada um é idempotente de um jeito
+ * diferente: seed desligado sai quieto; e-mail já existente sai sem duplicar — por isso
+ * a consulta usa o endereço já em minúsculas, igual ao índice único da tabela; e senha
+ * ausente vira erro em produção e aviso nos outros perfis, porque desenvolvedor sem
+ * variável setada precisa de um log, não de um boot quebrado.
+ *
+ * A senha é conferida pelo PasswordPolicy antes de qualquer hash: mínimo de 12 caracteres
+ * e fora da lista de valores conhecidos. Passar por cima disso criaria exatamente a
+ * conta que a política existe para impedir, com a diferença de que aqui ninguém viu a
+ * política sendo violada.
+ *
+ * A senha em texto nunca vai para o log — a mensagem de erro diz o que corrigir e deixa
+ * o valor de fora. O que é gravado é só o hash, junto da flag de troca obrigatória que
+ * SeedProperties define.
+ */
 package com.redekrill.scheduling.infrastructure.seed;
 
 import com.redekrill.scheduling.application.port.PasswordHasher;
 import com.redekrill.scheduling.domain.model.Role;
 import com.redekrill.scheduling.domain.model.User;
+import com.redekrill.scheduling.domain.policy.PasswordPolicy;
 import com.redekrill.scheduling.domain.repository.UserRepository;
 import com.redekrill.scheduling.infrastructure.config.properties.SeedProperties;
 import org.slf4j.Logger;
@@ -14,30 +33,32 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 
+/**
+ * Cria o administrador inicial via ApplicationRunner. Não popula dados de domínio (tipos
+ * de caminhão, horários) nem altera usuário existente: se a conta já está lá, para aqui.
+ */
 @Component
 public class DataInitializer implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
-    private static final List<String> KNOWN_PASSWORDS = List.of(
-            "admin@12345", "redekrill", "password", "changeme", "secret"
-    );
-
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final SeedProperties seedProperties;
     private final Clock clock;
     private final Environment environment;
+    private final PasswordPolicy passwordPolicy;
 
     public DataInitializer(UserRepository userRepository, PasswordHasher passwordHasher,
-                           SeedProperties seedProperties, Clock clock, Environment environment) {
+                           SeedProperties seedProperties, Clock clock, Environment environment,
+                           PasswordPolicy passwordPolicy) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.seedProperties = seedProperties;
         this.clock = clock;
         this.environment = environment;
+        this.passwordPolicy = passwordPolicy;
     }
 
     @Override
@@ -63,10 +84,11 @@ public class DataInitializer implements ApplicationRunner {
                     + "Defina a variável para criar a conta inicial.");
             return;
         }
-        if (password.length() < 12 || KNOWN_PASSWORDS.contains(password.toLowerCase(Locale.ROOT))) {
+        if (password.length() < PasswordPolicy.MIN_LENGTH || passwordPolicy.isKnownOrWeak(password)) {
             throw new IllegalStateException(
-                    "SEED_ADMIN_PASSWORD deve ter pelo menos 12 caracteres e não pode ser "
-                            + "uma senha padrão conhecida. Nenhuma senha foi registrada em log.");
+                    "SEED_ADMIN_PASSWORD deve ter pelo menos %d caracteres e não pode ser "
+                            + "uma senha padrão conhecida. Nenhuma senha foi registrada em log."
+                            .formatted(PasswordPolicy.MIN_LENGTH));
         }
 
         User admin = User.createInitial(

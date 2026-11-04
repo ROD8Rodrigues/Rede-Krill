@@ -9,8 +9,10 @@ server:
 
 app:
   auth:
-    cookie-secure: true
-    expose-token-in-response: false
+    # Defaults de produção preservados e validados no boot pelo
+    # ProductionConfigurationValidator; a env existe para o operador errar explícito.
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    expose-token-in-response: ${AUTH_EXPOSE_TOKEN_IN_RESPONSE:false}
     cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Strict}
   security:
     trust-forwarded-headers: ${TRUST_FORWARDED_HEADERS:true}

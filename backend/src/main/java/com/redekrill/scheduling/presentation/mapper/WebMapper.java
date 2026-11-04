@@ -1,3 +1,22 @@
+/*
+ * A tradução entre o resultado da aplicação e o JSON que o cliente recebe.
+ *
+ * Métodos estáticos, privados de instância, sem estado. Cada um percorre os campos do
+ * Result e monta o record de response correspondente, e é só isso. A alternativa —
+ * Jackson anotado em cima do model de domínio — colocaria o agregado no lugar onde a
+ * API é descrita, e qualquer campo novo do domínio vazaria para o cliente sem que
+ * alguém tivesse decidido aquilo.
+ *
+ * Dois detalhes que são comportamento de contrato, não estilo:
+ * - Hora da faixa sai formatada como HH:mm, em vez do ISO com segundos que LocalTime
+ *   produziria sozinho. O formulário mostra "08:00", e formatar no mapper mantém o
+ *   domínio sem máscara de exibição.
+ * - Quem cancelou e quem criou viram resumo (id, nome, e-mail) ou nulo, nunca o objeto
+ *   inteiro com papel, flag de senha e datas de conta.
+ *
+ * Quando um Result novo aparecer, o mapper é o primeiro lugar onde a forma da resposta é
+ * decidida — e onde dá para ver, numa linha, o que o cliente vai poder ler.
+ */
 package com.redekrill.scheduling.presentation.mapper;
 
 import com.redekrill.scheduling.application.dto.appointment.AppointmentCommandResult;
@@ -7,7 +26,6 @@ import com.redekrill.scheduling.application.dto.appointment.CapacityOverviewResu
 import com.redekrill.scheduling.application.dto.appointment.CapacityResult;
 import com.redekrill.scheduling.application.dto.appointment.SlotCapacityResult;
 import com.redekrill.scheduling.application.dto.audit.AuditLogResult;
-import com.redekrill.scheduling.application.dto.auth.LoginResult;
 import com.redekrill.scheduling.application.dto.reference.PalletizationTypeResult;
 import com.redekrill.scheduling.application.dto.reference.TimeSlotResult;
 import com.redekrill.scheduling.application.dto.trucktype.TruckTypeResult;
@@ -18,7 +36,6 @@ import com.redekrill.scheduling.presentation.response.AppointmentResponse;
 import com.redekrill.scheduling.presentation.response.AuditLogResponse;
 import com.redekrill.scheduling.presentation.response.CapacityOverviewResponse;
 import com.redekrill.scheduling.presentation.response.CapacityResponse;
-import com.redekrill.scheduling.presentation.response.LoginResponse;
 import com.redekrill.scheduling.presentation.response.PalletizationTypeResponse;
 import com.redekrill.scheduling.presentation.response.SlotCapacityResponse;
 import com.redekrill.scheduling.presentation.response.TimeSlotResponse;
@@ -28,20 +45,15 @@ import com.redekrill.scheduling.presentation.response.UserResponse;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * Conversão unidirecional de DTOs de aplicação para records de resposta HTTP. Não faz
+ * validação, não consulta nada e não conhece Servlet nem Jackson.
+ */
 public final class WebMapper {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private WebMapper() {
-    }
-
-    public static LoginResponse toResponse(LoginResult result) {
-        return new LoginResponse(
-                result.token(),
-                result.tokenType(),
-                result.expiresIn(),
-                toResponse(result.user())
-        );
     }
 
     public static UserResponse toResponse(UserResult result) {
@@ -173,6 +185,8 @@ public final class WebMapper {
                 result.totalAppointments(),
                 result.totalPallets(),
                 result.totalEffectivePallets(),
+                result.totalCanceled(),
+                result.matchingAppointments(),
                 result.page(),
                 result.size(),
                 result.totalPages(),

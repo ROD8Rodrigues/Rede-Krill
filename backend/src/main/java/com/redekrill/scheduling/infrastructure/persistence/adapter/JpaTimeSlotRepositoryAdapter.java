@@ -1,3 +1,14 @@
+/*
+ * Faixas horárias no banco, e a decisão de onde mora a ordenação.
+ *
+ * O caso de uso que verifica sobreposição lê todas as faixas e compara no modelo. Não
+ * há consulta de intervalo aqui porque a regra de conflito (encostar não é invadir) é
+ * de TimeSlot.overlaps, e duplicá-la em JPQL seria ter duas respostas possíveis para a
+ * mesma pergunta.
+ *
+ * A ordenação cronológica vem do nome do método — findAllByOrderByStartTimeAsc — e é
+ * ela que põe o seletor da tela na ordem esperada.
+ */
 package com.redekrill.scheduling.infrastructure.persistence.adapter;
 
 import com.redekrill.scheduling.domain.model.TimeSlot;
@@ -10,6 +21,9 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+/**
+ * Implementação de TimeSlotRepository sobre Spring Data JPA.
+ */
 public class JpaTimeSlotRepositoryAdapter implements TimeSlotRepository {
 
     private final TimeSlotJpaRepository repository;

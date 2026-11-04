@@ -1,3 +1,17 @@
+/*
+ * Tipos de caminhão: a entidade de referência mais simples do sistema.
+ *
+ * Nome e descrição, sem métrica nenhuma — o papel do tipo é servir de rótulo e de alvo
+ * de vínculo, então o controller tem quatro métodos e nenhum deles pensa.
+ *
+ * create devolve 201 construído à mão com ResponseEntity porque o corpo precisa sair
+ * junto do status; update fica no 200 padrão retornando o objeto, e delete usa
+ * @ResponseStatus(NO_CONTENT) por não haver o que devolver.
+ *
+ * delete é a única rota com consequência invisível: se houver agendamento usando o tipo,
+ * o caso de uso recusa. Não se tenta proteger aqui consultando antes — a checagem e a
+ * exclusão precisam estar na mesma transação para não prometer o que não se cumpre.
+ */
 package com.redekrill.scheduling.presentation.controller;
 
 import com.redekrill.scheduling.application.dto.trucktype.CreateTruckTypeCommand;
@@ -30,6 +44,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * Rotas de tipo de caminhão. Não traz listagem paginada: a lista é curta e vai inteira
+ * no select do formulário.
+ */
 @RestController
 @RequestMapping("/api/truck-types")
 @Tag(name = "Tipos de caminhão")

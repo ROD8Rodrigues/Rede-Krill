@@ -1,3 +1,16 @@
+/*
+ * A fotografia de ocupação de um dia: quanto já foi somado no dia e em cada faixa.
+ *
+ * Este caso de uso não passa pela avaliação de capacidade de um lançamento. Ele lê
+ * os dois limites fixos direto de CapacityPolicy e calcula o percentual com
+ * occupancyPercentage — por isso a resposta não traz avisos, traz situação. Avisos
+ * são produto do Create/Update, onde existe um agendamento novo para pesar na conta.
+ *
+ * São uma consulta de soma por faixa, além da soma do dia. Com a tabela de faixas
+ * pequena e a tabela tem índice em (status, appointment_date), isso é aceitável; se o cadastro
+ * de faixas crescer, o lugar de resolver é uma única consulta agrupada no
+ * repositório, não uma pré-agregação em memória aqui.
+ */
 package com.redekrill.scheduling.application.usecase.appointment;
 
 import com.redekrill.scheduling.application.dto.appointment.CapacityOverviewResult;
@@ -12,6 +25,9 @@ import com.redekrill.scheduling.domain.repository.TimeSlotRepository;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Ocupação do dia e de cada faixa horária em uma data.
+ */
 public class GetCapacityOverviewUseCase {
 
     private final AppointmentRepository appointmentRepository;
